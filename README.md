@@ -6,6 +6,16 @@ This project helps players review death situations during the laning phase by ge
 
 The goal of this app is not to give one fixed answer. Instead, it helps players think more clearly about why a death happened and what they can try in the next game.
 
+## Screenshots
+
+### Input Form
+
+![Input Form](public/screenshots/result-screen.png)
+
+### Review Result
+
+![Review Result](public/screenshots/result2-screen.png)
+
 ## Current Status
 
 Level 2-A MVP completed.
