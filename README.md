@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mid Laning Death Review AI
 
-## Getting Started
+AI coaching web app for reviewing League of Legends mid lane laning phase deaths.
 
-First, run the development server:
+This project helps players review death situations during the laning phase by generating possible risk tags, review questions, and next-game action goals.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+The goal of this app is not to give one fixed answer. Instead, it helps players think more clearly about why a death happened and what they can try in the next game.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Current Status
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Level 2-A MVP completed.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The app currently supports manual death situation input, risk tag generation, Gemini API review generation, and Korean feedback output.
 
-## Learn More
+## Main Features
 
-To learn more about Next.js, take a look at the following resources:
+- Death situation input form
+- Player tier selection
+- Current outcome selection
+- Game time phase selection
+- Pre-lane vision and invade situation options
+- Risk tag generation
+- Gemini API review generation
+- Korean AI coaching feedback
+- Review result card UI
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Example Risk Tags
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `PRE_LANE_VISION_RISK`
+- `UNSAFE_WARDING`
+- `NO_RIVER_VISION`
+- `ENEMY_JUNGLER_UNKNOWN`
+- `UNTRACKED_PUSH`
+- `CS_GREED`
+- `NO_FLASH_WINDOW`
+- `NO_ESCAPE_TOOL`
 
-## Deploy on Vercel
+## Design Philosophy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This app avoids saying, “This was definitely the reason you died.”
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+League of Legends situations are complex, and one death can come from many possible factors.  
+Because of that, this app focuses on giving possible risk factors and reflection questions instead of forcing a single answer.
+
+The goal is to help the player review their own decision-making.
+
+## Tech Stack
+
+- Next.js
+- TypeScript
+- Tailwind CSS
+- Gemini API
+
+## Project Structure
+
+```text
+app/
+  api/review/route.ts      # Gemini API review route
+  page.tsx                 # Main page
+
+components/
+  DeathReviewForm.tsx      # Input form
+  ReviewResultCard.tsx     # Review result UI
+
+lib/
+  prompts.ts               # AI prompt design
+  riskTagMapper.ts         # Rule-based risk tag generation
+
+types/
+  review.ts                # TypeScript types
