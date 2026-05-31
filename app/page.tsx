@@ -16,17 +16,19 @@ export default function Home() {
       <div className="mx-auto max-w-6xl space-y-8">
         <header className="space-y-3">
           <p className="text-sm font-medium text-zinc-500">
-            League of Legends AI Coaching MVP
+            League of Legends 1:1 AI Coaching MVP
           </p>
 
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Mid Laning Death Review AI
+            Mid Laning Decision Review AI
           </h1>
 
           <p className="max-w-3xl text-zinc-600">
-            미드 라인전에서 죽은 상황을 입력하면, 가능한 Risk Tag와 복기 질문,
-            다음 판 행동 목표를 생성합니다. 이 앱은 정답을 단정하지 않고
-            플레이어가 스스로 생각하도록 돕는 것을 목표로 합니다.
+            미드 라인전에서 죽음, 손해, 솔킬, 라인 주도권, CS/플레이트 이득
+            같은 상황을 입력하면 가능한 Risk Tag와 1:1 코칭 피드백을
+            생성합니다. 이 앱은 정답을 단정하지 않고, 플레이어가 자신의
+            판단 흐름을 복기하고 다음 판 행동 목표를 세우도록 돕는 것을
+            목표로 합니다.
           </p>
         </header>
 
@@ -41,9 +43,9 @@ export default function Home() {
           ) : (
             <div className="flex min-h-96 items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-zinc-500">
               <div>
-                아직 리뷰 결과가 없습니다.
+                아직 코칭 리뷰 결과가 없습니다.
                 <br />
-                왼쪽 입력 폼을 작성하고 Death Review를 생성해보세요.
+                왼쪽 입력 폼을 작성하고 Coaching Review를 생성해보세요.
               </div>
             </div>
           )}

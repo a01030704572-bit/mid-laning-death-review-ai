@@ -37,13 +37,27 @@ export type RiskTag =
   | "SIDE_PRESSURE_UNTRACKED"
   | "UNCLEAR_DEATH_CAUSE";
 
+export type RiskFactor = {
+  tag: string;
+  explanation: string;
+};
+
+export type CoachFeedback = {
+  coreFeedback: string;
+  whatWentWell: string;
+  whatToImprove: string;
+  oneActionForNextGame: string;
+};
+
 export type ReviewResult = {
-  possible_risk_factors: {
-    tag: string;
-    explanation: string;
-  }[];
-  review_questions: string[];
-  next_laning_goal: string;
-  risk_checklist: string[];
-  confidence_note: string;
+  coachFeedback: CoachFeedback;
+  situationUnderstanding: string;
+  decisionFlowAnalysis: string;
+  possibleRiskFactors: RiskFactor[];
+  uncertainInfo: string[];
+  sceneCheckpoints: string[];
+  nextGameGoals: string[];
+  tierAdvice: string;
+  longTermPatternTags: string[];
+  confidenceNote: string;
 };

@@ -22,9 +22,112 @@ const initialInput: DeathReviewInput = {
   freeDescription: "",
 };
 
+const deathOrLossSituationOptions: [string, string][] = [
+  ["why_death_happened", "왜 죽었는지 알고 싶다"],
+  ["where_to_stop", "어디서 멈췄어야 했는지 알고 싶다"],
+  ["missed_jungle_or_roam", "상대 정글/로밍 위험을 놓쳤는지 보고 싶다"],
+  ["vision_decision_review", "시야를 잡으러 간 판단이 맞았는지 보고 싶다"],
+  ["trade_or_cs_greed", "딜교/CS 욕심이 과했는지 보고 싶다"],
+  ["bad_trade_value", "손해 본 교환이었는지 알고 싶다"],
+  ["bad_recall_timing", "귀환 타이밍을 놓쳤는지 보고 싶다"],
+  ["unknown", "잘 모르겠다"],
+];
+
+const advantageSituationOptions: [string, string][] = [
+  ["kill_angle_review", "킬각 판단이 맞았는지 보고 싶다"],
+  ["post_kill_wave_recall", "이득 이후 웨이브/귀환 판단이 애매하다"],
+  ["plate_or_vision_choice", "플레이트를 칠지 시야를 잡을지 애매하다"],
+  ["jungle_risk_after_kill", "킬 이후 상대 정글 리스크를 어떻게 봐야 할지 모르겠다"],
+  ["advantage_conversion", "이득을 더 크게 굴리는 방법을 알고 싶다"],
+  ["post_kill_priority", "킬 이후 다음 행동 우선순위를 알고 싶다"],
+  ["unknown", "잘 모르겠다"],
+];
+
+const laneAdvantageSituationOptions: [string, string][] = [
+  ["how_to_convert_lane_advantage", "이득을 어떻게 굴려야 했는지 알고 싶다"],
+  ["push_or_recall_review", "웨이브를 밀고 귀환해야 했는지 보고 싶다"],
+  ["plate_or_vision_choice", "플레이트를 칠지 시야를 잡을지 애매하다"],
+  ["roam_or_objective_window", "로밍/오브젝트로 연결할 수 있었는지 보고 싶다"],
+  ["jungle_tracking_with_priority", "상대 정글 위치를 고려했어야 했는지 보고 싶다"],
+  ["maintain_priority", "주도권을 유지하는 방법을 알고 싶다"],
+  ["unknown", "잘 모르겠다"],
+];
+
+function getSituationTypeOptions(currentOutcome: string): [string, string][] {
+  if (
+    currentOutcome === "solo_kill" ||
+    currentOutcome === "forced_enemy_recall"
+  ) {
+    return advantageSituationOptions;
+  }
+
+  if (
+    currentOutcome === "gained_lane_priority" ||
+    currentOutcome === "plate_or_cs_gain"
+  ) {
+    return laneAdvantageSituationOptions;
+  }
+
+  return deathOrLossSituationOptions;
+}
+
+const deathOrLossActionOptions: [string, string][] = [
+  ["early_jungle_tracking_ward", "초반 정글 동선 확인용 시야를 잡으러 감"],
+  ["deep_warding", "상대 정글/칼부 쪽 깊은 시야를 잡으러 감"],
+  ["move_to_ally_jungle", "아군 정글 쪽으로 합류하려고 움직임"],
+  ["follow_missing_mid", "상대 미드가 안 보이는데 따라가려 함"],
+  ["cs_greed", "미니언 먹으러 앞으로 감"],
+  ["trade", "딜교하려고 들어감"],
+  ["warding", "와드를 박으러 감"],
+  ["delayed_recall", "귀환 타이밍을 미룸"],
+  ["chasing", "상대를 추격함"],
+  ["cooldown_down_forward", "스킬이 빠진 상태에서 앞으로 감"],
+];
+
+const killAdvantageActionOptions: [string, string][] = [
+  ["enemy_key_spell_down_engage", "상대 주요 스킬이 빠진 뒤 진입"],
+  ["enemy_low_hp_engage", "상대 체력/자원 부족을 보고 진입"],
+  ["level6_kill_angle", "6렙 킬각을 보고 들어감"],
+  ["enemy_stepped_forward", "상대가 앞으로 나온 타이밍에 진입"],
+  ["good_wave_kill_angle", "라인 위치가 좋아서 진입"],
+  ["enemy_mistake_engage", "상대 실수를 보고 진입"],
+  ["post_kill_unclear", "킬 이후 운영 판단이 애매했음"],
+];
+
+const laneAdvantageActionOptions: [string, string][] = [
+  ["pushed_wave", "웨이브를 밀었다"],
+  ["hit_plate", "플레이트를 쳤다"],
+  ["forced_recall_push", "상대를 집 보내고 라인을 밀었다"],
+  ["ward_after_advantage", "이득 이후 시야를 잡으러 갔다"],
+  ["looked_for_recall", "귀환 타이밍을 잡으려 했다"],
+  ["looked_for_roam_objective", "로밍/오브젝트 합류를 고민했다"],
+  ["post_advantage_unclear_action", "이득 이후 다음 행동이 애매했다"],
+];
+
+function getBeforeActionOptions(currentOutcome: string): [string, string][] {
+  if (
+    currentOutcome === "solo_kill" ||
+    currentOutcome === "forced_enemy_recall"
+  ) {
+    return killAdvantageActionOptions;
+  }
+
+  if (
+    currentOutcome === "gained_lane_priority" ||
+    currentOutcome === "plate_or_cs_gain"
+  ) {
+    return laneAdvantageActionOptions;
+  }
+
+  return deathOrLossActionOptions;
+}
+
 export default function DeathReviewForm({ onResult }: Props) {
   const [input, setInput] = useState<DeathReviewInput>(initialInput);
   const [loading, setLoading] = useState(false);
+
+  const situationTypeOptions = getSituationTypeOptions(input.currentOutcome);
+  const beforeActionOptions = getBeforeActionOptions(input.currentOutcome);
 
   function updateField<K extends keyof DeathReviewInput>(
     key: K,
@@ -97,7 +200,9 @@ export default function DeathReviewForm({ onResult }: Props) {
           onChange={(e) => updateField("enemyChampion", e.target.value)}
           placeholder="예: Zed"
         />
-              <SelectField
+      </div>
+
+      <SelectField
         label="내 티어"
         value={input.playerTier}
         onChange={(value) => updateField("playerTier", value)}
@@ -115,7 +220,14 @@ export default function DeathReviewForm({ onResult }: Props) {
       <SelectField
         label="현재 상황 결과"
         value={input.currentOutcome}
-        onChange={(value) => updateField("currentOutcome", value)}
+        onChange={(value) =>
+          setInput((prev) => ({
+            ...prev,
+            currentOutcome: value,
+            beforeDeathAction: getBeforeActionOptions(value)[0][0],
+            deathCause: getSituationTypeOptions(value)[0][0],
+          }))
+        }
         options={[
           ["death", "죽었다"],
           ["survived_but_lost", "살아남았지만 손해를 봤다"],
@@ -126,13 +238,12 @@ export default function DeathReviewForm({ onResult }: Props) {
           ["unknown", "잘 모르겠다"],
         ]}
       />
-      </div>
 
       <SelectField
         label="게임 시간"
         value={input.gameTime}
         onChange={(value) => updateField("gameTime", value)}
-                options={[
+        options={[
           ["pre_lane", "0:00–1:30 / 라인 시작 전 시야·인베이드 구간"],
           ["first_waves", "1:30–3:30 / 첫 웨이브~초반 2렙 구간"],
           ["first_jungle_window", "3:30–6:00 / 첫 정글 개입 가능 구간"],
@@ -146,7 +257,7 @@ export default function DeathReviewForm({ onResult }: Props) {
         label="라인 상태"
         value={input.laneState}
         onChange={(value) => updateField("laneState", value)}
-                options={[
+        options={[
           ["pre_lane", "라인 시작 전 / 미니언 도착 전"],
           ["pushing", "내가 밀고 있었다"],
           ["being_pushed", "상대가 밀고 있었다"],
@@ -159,24 +270,10 @@ export default function DeathReviewForm({ onResult }: Props) {
       />
 
       <SelectField
-        label="죽기 직전 행동"
+        label="상황 직전 행동"
         value={input.beforeDeathAction}
         onChange={(value) => updateField("beforeDeathAction", value)}
-               options={[
-          ["early_jungle_tracking_ward", "초반 정글 동선 확인용 시야를 잡으러 감"],
-          ["deep_warding", "상대 정글/칼부 쪽 깊은 시야를 잡으러 감"],
-          ["move_to_ally_jungle", "아군 정글 쪽으로 합류하려고 움직임"],
-          ["follow_missing_mid", "상대 미드가 안 보이는데 따라가려 함"],
-          ["cs_greed", "미니언 먹으러 앞으로 감"],
-          ["trade", "딜교하려고 들어감"],
-          ["kill_angle", "킬각을 보려고 들어감"],
-          ["plate", "타워 플레이트를 치고 있었음"],
-          ["delayed_recall", "귀환 타이밍을 미룸"],
-          ["warding", "와드를 박으러 감"],
-          ["roaming", "로밍 가려고 움직임"],
-          ["chasing", "상대를 추격함"],
-          ["cooldown_down_forward", "스킬이 빠진 상태에서 앞으로 감"],
-        ]}
+        options={beforeActionOptions}
       />
 
       <SelectField
@@ -234,23 +331,10 @@ export default function DeathReviewForm({ onResult }: Props) {
       </div>
 
       <SelectField
-        label="사망 원인 유형"
+        label="리뷰 초점"
         value={input.deathCause}
         onChange={(value) => updateField("deathCause", value)}
-                options={[
-          ["pre_lane_vision_invade", "프리라인 시야/인베이드 중 사망"],
-          ["early_collapse", "상대 다수 인원에게 초반에 물림"],
-          ["joined_jungle_fight", "아군 정글 교전에 합류하다 사망"],
-          ["solo_kill", "상대 미드에게 솔킬"],
-          ["jungle_gank", "정글 갱킹"],
-          ["mid_jungle", "미드 + 정글 합류"],
-          ["support_roam", "로밍/서포터 개입"],
-          ["tower_dive", "타워 다이브"],
-          ["chasing_death", "추격하다가 역으로 죽음"],
-          ["warding_death", "시야 잡다가 죽음"],
-          ["recall_greed", "귀환 안 하고 버티다 죽음"],
-          ["unknown", "잘 모르겠다"],
-        ]}
+        options={situationTypeOptions}
       />
 
       <div>
@@ -259,7 +343,18 @@ export default function DeathReviewForm({ onResult }: Props) {
           className="mt-1 min-h-28 w-full rounded-lg border border-zinc-300 p-2"
           value={input.freeDescription}
           onChange={(e) => updateField("freeDescription", e.target.value)}
-          placeholder="죽기 전 또는 이득을 본 직전 10~20초 상황을 적어주세요. 예: 몇 분 상황인지, 왜 앞으로 갔는지, 상대 미드/정글 위치를 알고 있었는지, 플/궁/이동기가 있었는지, 시야를 잡으려던 목적이나 이득을 본 뒤 무엇을 하려 했는지."
+         placeholder={`결과가 발생하기 전후 10~20초를 구체적으로 적어주세요.
+
+          예:
+          - 몇 분 상황인지
+          - 라인이 어디에 있었는지
+          - 상대 주요 스킬/내 주요 스킬이 빠졌는지
+          - 내 체력/마나/플래시 상태
+          - 상대 정글 위치를 알고 있었는지
+          - 킬/죽음/이득 이후 웨이브를 밀었는지, 귀환했는지, 플레이트를 쳤는지
+          - 가장 피드백받고 싶은 고민이 무엇인지
+
+짧게 쓰면 AI가 일반적인 리뷰만 할 수 있고, 자세히 쓸수록 1:1 피드백에 가까워집니다.`}
         />
       </div>
 
@@ -268,7 +363,7 @@ export default function DeathReviewForm({ onResult }: Props) {
         disabled={loading}
         className="w-full rounded-xl bg-black px-4 py-3 font-medium text-white disabled:opacity-50"
       >
-        {loading ? "리뷰 생성 중..." : "Death Review 생성하기"}
+        {loading ? "리뷰 생성 중..." : "Coaching Review 생성하기"}
       </button>
     </form>
   );
