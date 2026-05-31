@@ -1,10 +1,10 @@
-# Mid Laning Death Review AI
+# Mid Laning Decision Review AI
 
-AI coaching web app for reviewing League of Legends mid lane laning phase deaths.
+AI coaching web app for reviewing League of Legends mid lane laning phase decisions.
 
-This project helps players review death situations during the laning phase by generating possible risk tags, review questions, and next-game action goals.
+This project helps players review mid lane situations such as deaths, bad trades, solo kills, lane priority, and CS/plate advantages by generating possible risk tags, 1:1 coach feedback, review checkpoints, and next-game action goals.
 
-The goal of this app is not to give one fixed answer. Instead, it helps players think more clearly about why a death happened and what they can try in the next game.
+The goal of this app is not to give one fixed answer. Instead, it helps players think more clearly about their decision flow, understand possible risk factors, and choose one concrete action to try in the next game.
 
 ## Screenshots
 
@@ -16,22 +16,35 @@ The goal of this app is not to give one fixed answer. Instead, it helps players 
 
 ![Review Result](public/screenshots/result2-screen.png)
 
+### Level 2-B Coach Feedback
+
+![Level 2-B Coach Feedback](public/screenshots/level-2b-coach-feedback.png)
+
 ## Current Status
 
-Level 2-A MVP completed.
+Level 2-B coaching feedback engine completed.
 
-The app currently supports manual death situation input, risk tag generation, Gemini API review generation, and Korean feedback output.
+The app currently supports manual mid lane situation input, outcome-aware form options, risk tag generation, Gemini API review generation, Korean 1:1 coach feedback, tier-aware coaching depth, and a structured review result card.
+
+Tested situation types include:
+
+- Pre-lane vision death review
+- Solo kill advantage conversion review
+- Survived-but-lost bad trade review
 
 ## Main Features
 
-- Death situation input form
+- Mid lane situation input form
 - Player tier selection
 - Current outcome selection
-- Game time phase selection
-- Pre-lane vision and invade situation options
+- Outcome-aware action options
+- Review focus selection
 - Risk tag generation
 - Gemini API review generation
-- Korean AI coaching feedback
+- Coach Feedback summary card
+- Korean 1:1 coaching feedback
+- Tier-aware feedback depth
+- Long-term pattern tags
 - Review result card UI
 
 ## Example Risk Tags
