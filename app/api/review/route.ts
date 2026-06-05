@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { DeathReviewInput } from "@/types/review";
 import { generateRiskTags } from "@/lib/riskTagMapper";
 import { buildReviewPrompt } from "@/lib/prompts";
+import { mapCoachingCategories } from "@/lib/coachingCategoryMapper";
+import { buildCoachingKnowledgeBlock } from "@/lib/coachingKnowledge";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -13,7 +15,17 @@ export async function POST(req: Request) {
     const input = (await req.json()) as DeathReviewInput;
 
     const riskTags = generateRiskTags(input);
-    const prompt = buildReviewPrompt(input, riskTags);
+
+    const coachingCategories = mapCoachingCategories(input, riskTags);
+    const coachingKnowledgeBlock =
+      buildCoachingKnowledgeBlock(coachingCategories);
+
+    const prompt = buildReviewPrompt(
+      input,
+      riskTags,
+      coachingCategories,
+      coachingKnowledgeBlock
+    );
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-lite",
@@ -36,6 +48,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       riskTags,
+      coachingCategories,
       result,
     });
   } catch (error) {

@@ -2,6 +2,17 @@
 
 import { useState } from "react";
 import { DeathReviewInput, ReviewResult, RiskTag } from "@/types/review";
+import {
+  laneStateDetailOptions,
+  allyJunglePositionOptions,
+  visionPurposeOptions,
+  postPushIntentOptions,
+  teamSideOptions,
+  movementSideOptions,
+  wardLocationDetailOptions,
+  enemyMidStateOptions,
+  allyJungleSideDetailOptions,
+} from "@/lib/modules/vision/options";
 
 type Props = {
   onResult: (data: { riskTags: RiskTag[]; result: ReviewResult }) => void;
@@ -20,6 +31,23 @@ const initialInput: DeathReviewInput = {
   survivalResources: [],
   deathCause: "pre_lane_vision_invade",
   freeDescription: "",
+
+  // Level 3-C basic context
+  laneStateDetail: "unknown",
+  allyJunglePosition: "unknown",
+  visionPurpose: "unknown",
+  postPushIntent: "unknown",
+
+  // Level 3-C advanced context
+  teamSide: "unknown",
+  movementSide: "unknown",
+  wardLocationDetail: "unknown",
+  enemyMidState: "unknown",
+  allyJungleSideDetail: "unknown",
+
+  enemyKeyCooldownsKnown: "",
+  myKeyCooldownsKnown: "",
+  matchupNote: "",
 };
 
 const deathOrLossSituationOptions: [string, string][] = [
@@ -121,6 +149,8 @@ function getBeforeActionOptions(currentOutcome: string): [string, string][] {
 
   return deathOrLossActionOptions;
 }
+
+
 
 export default function DeathReviewForm({ onResult }: Props) {
   const [input, setInput] = useState<DeathReviewInput>(initialInput);
@@ -270,6 +300,36 @@ export default function DeathReviewForm({ onResult }: Props) {
       />
 
       <SelectField
+        label="라인 상태 세부"
+        value={input.laneStateDetail}
+        onChange={(value) => updateField("laneStateDetail", value as DeathReviewInput["laneStateDetail"])}
+        options={laneStateDetailOptions}
+      />
+
+      <SelectField
+        label="우리 정글 위치"
+        value={input.allyJunglePosition}
+        onChange={(value) => updateField("allyJunglePosition", value as DeathReviewInput["allyJunglePosition"])}
+        options={allyJunglePositionOptions}
+      />
+
+      <SelectField
+        label="시야/이동 목적"
+        value={input.visionPurpose}
+        onChange={(value) => updateField("visionPurpose", value as DeathReviewInput["visionPurpose"])}
+        options={visionPurposeOptions}
+      />
+
+      <SelectField
+        label="라인 박은 뒤 의도"
+        value={input.postPushIntent}
+        onChange={(value) => updateField("postPushIntent", value as DeathReviewInput["postPushIntent"])}
+        options={postPushIntentOptions}
+      />
+
+      
+
+      <SelectField
         label="상황 직전 행동"
         value={input.beforeDeathAction}
         onChange={(value) => updateField("beforeDeathAction", value)}
@@ -358,6 +418,96 @@ export default function DeathReviewForm({ onResult }: Props) {
         />
       </div>
 
+      <div className="space-y-4 rounded-xl border border-zinc-300 bg-zinc-50 p-4">
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-900">
+            고급 상황 정보
+          </h3>
+          <p className="mt-1 text-xs text-zinc-500">
+            더 정확한 복기를 원할 때만 입력하세요. 팀 진영, 이동 방향,
+            와드 위치, 챔피언 스킬 상태를 추가하면 AI가 덜 추측합니다.
+          </p>
+        </div>
+
+        <SelectField
+          label="내 팀 진영"
+          value={input.teamSide}
+          onChange={(value) =>
+            updateField("teamSide", value as DeathReviewInput["teamSide"])
+          }
+          options={teamSideOptions}
+        />
+
+        <SelectField
+          label="움직인 방향(미니맵 기준)"
+          value={input.movementSide}
+          onChange={(value) =>
+            updateField(
+              "movementSide",
+              value as DeathReviewInput["movementSide"]
+            )
+          }
+          options={movementSideOptions}
+        />
+
+        <SelectField
+          label="와드 위치 상세"
+          value={input.wardLocationDetail}
+          onChange={(value) =>
+            updateField(
+              "wardLocationDetail",
+              value as DeathReviewInput["wardLocationDetail"]
+            )
+          }
+          options={wardLocationDetailOptions}
+        />
+
+        <SelectField
+          label="상대 미드 상태"
+          value={input.enemyMidState}
+          onChange={(value) =>
+            updateField(
+              "enemyMidState",
+              value as DeathReviewInput["enemyMidState"]
+            )
+          }
+          options={enemyMidStateOptions}
+        />
+
+        <SelectField
+          label="우리 정글 위치 상세"
+          value={input.allyJungleSideDetail}
+          onChange={(value) =>
+            updateField(
+              "allyJungleSideDetail",
+              value as DeathReviewInput["allyJungleSideDetail"]
+            )
+          }
+          options={allyJungleSideDetailOptions}
+        />
+
+        <TextAreaField
+          label="상대 주요 스킬 상태"
+          value={input.enemyKeyCooldownsKnown}
+          onChange={(value) => updateField("enemyKeyCooldownsKnown", value)}
+          placeholder="예: 벡스 공포 있음, W 있음, 궁 없음"
+        />
+
+        <TextAreaField
+          label="내 주요 스킬 상태"
+          value={input.myKeyCooldownsKnown}
+          onChange={(value) => updateField("myKeyCooldownsKnown", value)}
+          placeholder="예: 아칼리 W 없음, E 있음, R 없음, 점멸 없음"
+        />
+
+        <TextAreaField
+          label="매치업 메모"
+          value={input.matchupNote}
+          onChange={(value) => updateField("matchupNote", value)}
+          placeholder="예: 아칼리는 6레벨 전까지 벡스 상대로 주도권 잡기 어렵고, 벡스 공포 때문에 함부로 진입하기 어렵다."
+        />
+      </div>
+
       <button
         type="submit"
         disabled={loading}
@@ -395,5 +545,29 @@ function SelectField({
         ))}
       </select>
     </div>
+  );
+}
+
+function TextAreaField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="min-h-24 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      />
+    </label>
   );
 }
