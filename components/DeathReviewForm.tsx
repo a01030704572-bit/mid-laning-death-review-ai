@@ -314,14 +314,14 @@ export default function DeathReviewForm({ onResult }: Props) {
       />
 
       <SelectField
-        label="시야/이동 목적"
+        label="그 순간 목적"
         value={input.visionPurpose}
         onChange={(value) => updateField("visionPurpose", value as DeathReviewInput["visionPurpose"])}
         options={visionPurposeOptions}
       />
 
       <SelectField
-        label="라인 박은 뒤 의도"
+        label="그 다음 하려던 행동"
         value={input.postPushIntent}
         onChange={(value) => updateField("postPushIntent", value as DeathReviewInput["postPushIntent"])}
         options={postPushIntentOptions}

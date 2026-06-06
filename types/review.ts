@@ -20,6 +20,11 @@ export type VisionPurpose =
   | "deep_ward"
   | "objective_setup"
   | "protect_roam"
+  | "trade_setup"
+  | "cs_under_pressure"
+  | "survive_under_tower"
+  | "all_in_or_kill_angle"
+  | "escape_or_disengage"
   | "unknown";
 
 export type PostPushIntent =
@@ -30,6 +35,11 @@ export type PostPushIntent =
   | "invade_with_jungle"
   | "hover_side_lane"
   | "stay_for_cs"
+  | "short_trade"
+  | "all_in"
+  | "last_hit_under_pressure"
+  | "hold_wave_under_tower"
+  | "escape_or_disengage"
   | "unknown";
 
 export type TeamSide =

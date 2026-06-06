@@ -60,6 +60,11 @@ Level 3-C advanced context handling:
 - If allyJungleSideDetail is provided, use it to judge whether the player had real jungle cover or only assumed cover.
 - If enemyMidState is provided, use it to judge whether the enemy mid could follow, collapse, punish, or was unable to move.
 - If advanced context is unknown, do not pretend it is known. Put it in uncertainInfo or sceneCheckpoints.
+- Be careful with teamSide and jungle camp direction.
+- For blue_team, enemy raptor side is generally top-side and enemy blue side is generally bot-side.
+- For red_team, enemy raptor side is generally bot-side and enemy blue side is generally top-side.
+- If movementSide conflicts with wardLocationDetail and teamSide, mention the conflict instead of assuming both are correct.
+- When there is a conflict, prioritize wardLocationDetail and teamSide over movementSide.
 
 Level 3-C decision context:
 - The player may now provide detailed lane state, ally jungle position, vision purpose, and post-push intent.

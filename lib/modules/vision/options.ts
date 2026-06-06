@@ -22,6 +22,14 @@ export const visionPurposeOptions: [string, string][] = [
   ["deep_ward", "상대 정글 깊숙한 시야를 잡으려 했다"],
   ["objective_setup", "용/전령 준비 시야를 잡으려 했다"],
   ["protect_roam", "로밍 가기 전에 안전 시야를 잡으려 했다"],
+
+  // Level 3-D: trade / matchup context
+  ["trade_setup", "딜교 각을 보려 했다"],
+  ["cs_under_pressure", "위험하지만 CS를 먹으려 했다"],
+  ["survive_under_tower", "타워 근처에서 버티려 했다"],
+  ["all_in_or_kill_angle", "킬각/올인을 보려 했다"],
+  ["escape_or_disengage", "빠지려 했다"],
+
   ["unknown", "정확히 모르겠다"],
 ];
 
@@ -33,6 +41,14 @@ export const postPushIntentOptions: [string, string][] = [
   ["invade_with_jungle", "우리 정글과 함께 들어가려 했다"],
   ["hover_side_lane", "사이드 라인을 봐주려 했다"],
   ["stay_for_cs", "그냥 CS/경험치를 더 먹으려 했다"],
+
+  // Level 3-D: trade / matchup context
+  ["short_trade", "짧은 딜교를 하려 했다"],
+  ["all_in", "킬각/올인을 보려 했다"],
+  ["last_hit_under_pressure", "위험하지만 CS를 먹으려 했다"],
+  ["hold_wave_under_tower", "타워 근처에서 라인을 받아먹으려 했다"],
+  ["escape_or_disengage", "빠지려 했다"],
+
   ["unknown", "정확히 모르겠다"],
 ];
 
