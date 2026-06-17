@@ -31,6 +31,14 @@ export function determineScenarioType(
   riskTags: RiskTag[]
 ): ScenarioType {
   const tagSet = new Set<RiskTag>(riskTags);
+  
+// 1. Strong solo-kill signal should override stale pre-lane defaults.
+  if (
+  input.deathCause === "solo_kill" ||
+  input.currentOutcome === "solo_kill"
+) {
+  return "SOLO_KILL_TRADE";
+}
 
   // 1. PRE_LANE_VISION — 가장 먼저 체크 (UNSAFE_WARDING보다 우선)
   if (

@@ -126,16 +126,47 @@ function getDefaultDeathCause(scenario: UserScenario): string {
 function getScenarioDefaults(scenario: UserScenario): Partial<DeathReviewInput> {
   switch (scenario) {
     case "PRE_LANE_VISION":
-      return { gameTime: "pre_lane", laneState: "pre_lane", beforeDeathAction: "early_jungle_tracking_ward" };
+      return {
+        gameTime: "pre_lane",
+        laneState: "pre_lane",
+        beforeDeathAction: "early_jungle_tracking_ward",
+      };
+
     case "GANKED_WHILE_PUSHING":
-      return { gameTime: "first_jungle_window", laneState: "pushing" };
+      return {
+        gameTime: "first_jungle_window",
+        laneState: "pushing",
+      };
+
+    case "SOLO_KILL_TRADE":
+      return {
+        gameTime: "first_jungle_window",
+        laneState: "neutral",
+      };
+
+    case "RECALL_GREED":
+      return {
+        gameTime: "before_14",
+        laneState: "pushed_in",
+      };
+
+    case "UNSAFE_WARDING":
+      return {
+        gameTime: "first_jungle_window",
+        laneState: "neutral",
+        beforeDeathAction: "warding",
+      };
+
     case "ADVANTAGE_CONVERSION":
-      return { laneState: "center" };
+      return {
+        gameTime: "before_14",
+        laneState: "pushing",
+      };
+
     default:
       return {};
   }
 }
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function DeathReviewForm({ onResult }: Props) {

@@ -3,6 +3,11 @@ import { DeathReviewInput, RiskTag } from "@/types/review";
 export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
   const tags = new Set<RiskTag>();
 
+
+  const isSoloKillContext =
+    input.currentOutcome === "solo_kill" ||
+    input.deathCause === "solo_kill";
+
   // Pre-lane / level 1 vision or invade risk
   if (input.gameTime === "pre_lane" ||
     input.laneState === "pre_lane" ||
@@ -36,10 +41,15 @@ export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
     tags.add("RECALL_GREED");
   }
 
-  if (input.beforeDeathAction === "early_jungle_tracking_ward" ||
-      input.beforeDeathAction === "deep_warding") {
-    tags.add("UNSAFE_WARDING");
-  }
+  if (
+    !isSoloKillContext &&
+    (
+      input.beforeDeathAction === "early_jungle_tracking_ward" ||
+      input.beforeDeathAction === "deep_warding"
+    )
+) {
+  tags.add("UNSAFE_WARDING");
+}
 
   if (input.beforeDeathAction === "chasing") {
     tags.add("CHASE_TUNNEL");
