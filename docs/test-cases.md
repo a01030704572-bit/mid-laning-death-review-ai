@@ -562,3 +562,146 @@ The result is bad if the AI:
 - Says Yone should always push early.
 - Ignores HP preservation.
 - Ignores range disadvantage.
+
+---
+
+# Level 3-D Regression Tests
+
+These cases verify that solo-kill and duel contexts keep the correct scenario priority and do not inherit stale pre-lane or unsafe-warding defaults.
+
+## Test A - Solo Kill Duel Survived
+
+### Input Idea
+
+- playerTier: Diamond or Master
+- currentOutcome: solo_kill
+- scenario: 1v1 duel / SOLO_KILL_TRADE
+- deathCause: solo_kill
+
+### Expected
+
+- scenarioType: SOLO_KILL_TRADE
+- Must not be PRE_LANE_VISION
+- Must not include UNSAFE_WARDING by default
+- May include NO_RIVER_VISION or ENEMY_JUNGLER_UNKNOWN if input supports it
+
+## Test B - Solo Kill but Died to Jungle Cover
+
+### Input Idea
+
+- playerTier: Diamond
+- champion matchup: LeBlanc vs Lissandra
+- User got the solo kill, but enemy jungle covered and killed the user after
+- No Flash or escape tool limited
+
+### Expected
+
+- scenarioType: SOLO_KILL_TRADE
+- Review should focus on kill value, escape route, jungle cover, and 1-for-1 tradeoff
+- NO_FLASH_WINDOW may appear
+- ENEMY_JUNGLER_UNKNOWN may appear until a better jungle-info field is added
+- UNSAFE_WARDING should not appear
+
+## Test C - Pre-Lane Vision Death
+
+### Input Idea
+
+- gameTime: pre_lane
+- laneState: pre_lane
+- deathCause: pre_lane_vision_invade
+
+### Expected
+
+- scenarioType: PRE_LANE_VISION
+- PRE_LANE_VISION_RISK is allowed
+
+## Test D - Unsafe Warding Death
+
+### Input Idea
+
+- currentOutcome: death
+- deathCause: warding_death
+- beforeDeathAction: deep_warding or early_jungle_tracking_ward
+
+### Expected
+
+- UNSAFE_WARDING should appear
+- scenario should not become SOLO_KILL_TRADE
+
+---
+
+# Level 3-E Regression Tests
+
+These cases verify jungle/support cover, fight direction, and post-kill escape interpretation without changing Level 3-D solo-kill routing.
+
+## Test E1 - Enemy Jungle Seen but Ignored
+
+### Input
+
+- scenario: SOLO_KILL_TRADE
+- enemyJungleInfoState: seen_but_ignored
+
+### Expected
+
+- KNOWN_JUNGLE_THREAT_IGNORED should appear
+- Must not include ENEMY_JUNGLER_UNKNOWN
+- Feedback must not say enemy jungle was unknown
+- Feedback should distinguish information ignored or risk accepted from information missing
+
+## Test E2 - Covered Kill Attempt
+
+### Input
+
+- enemyJungleInfoState: seen_near
+- allyJungleCoverState: same_side_cover
+- fightDirectionRelativeToCover: toward_ally_cover
+- postKillEscapePlan: escape_through_ally_side
+
+### Expected
+
+- ENEMY_JUNGLER_NEARBY should appear
+- ALLY_JUNGLE_COVER_AVAILABLE should appear
+- FIGHT_TOWARD_ALLY_COVER should appear
+- ESCAPE_ROUTE_TO_ALLY_SIDE should appear
+- REASONABLE_COVERED_KILL_ATTEMPT should appear
+- Feedback should not blindly call the play bad
+
+## Test E3 - Fight Toward Enemy Jungle Without Cover
+
+### Input
+
+- enemyJungleInfoState: seen_near
+- allyJungleCoverState: opposite_side
+- fightDirectionRelativeToCover: toward_enemy_jungle
+- postKillEscapePlan: escape_through_enemy_side
+
+### Expected
+
+- ENEMY_JUNGLER_NEARBY should appear
+- NO_ALLY_COVER should appear
+- FIGHT_TOWARD_ENEMY_JUNGLE should appear
+- POST_KILL_ESCAPE_RISK should appear
+- Feedback should emphasize post-kill escape risk
+
+## Test E4 - Enemy Support Can Move First
+
+### Input
+
+- supportRoamState: enemy_support_can_move_first
+
+### Expected
+
+- ENEMY_SUPPORT_MOVE_FIRST should appear
+- High-tier feedback should mention support first move
+- Low-tier feedback should explain the danger simply unless support timing is obvious
+
+## Test E5 - Unknown Enemy Jungle
+
+### Input
+
+- enemyJungleInfoState: unknown
+
+### Expected
+
+- ENEMY_JUNGLER_UNKNOWN should appear
+- Feedback may say enemy jungle location was unknown

@@ -314,6 +314,24 @@ Level 3-C risk tag interpretation:
 - MOVING_BEFORE_WAVE_CRASH means the player may have moved before securing the wave state.
 - BOUNCE_BACK_GREED_WINDOW means the player may have stayed too long as the wave was returning.
 
+Level 3-E jungle/support cover and fight direction:
+- The player may provide enemyJungleInfoState, enemyJungleLastSeenSide, allyJungleCoverState, fightDirectionRelativeToCover, postKillEscapePlan, and supportRoamState.
+- Use these fields to decide whether the risk was missing information, ignored information, lack of ally cover, bad fight direction, support first move, or post-kill escape risk.
+- If enemyJungleInfoState is "unknown", you may say: "상대 정글 위치를 몰라서 위험했을 가능성".
+- If enemyJungleInfoState is "seen_but_ignored", do NOT say "상대 정글 위치를 몰랐다". Required wording: "상대 정글 정보를 알고도 킬각 기대값을 더 높게 본 판단일 수 있다" and "정보 부족 문제가 아니라 정보 무시 또는 리스크 수용 문제일 수 있다".
+- If ALLY_JUNGLE_COVER_AVAILABLE and FIGHT_TOWARD_ALLY_COVER are present, do not blindly call the play bad. Explain that the kill attempt may be reasonable if fight direction, ally jungle position, and escape route supported it.
+- If ENEMY_JUNGLER_NEARBY, NO_ALLY_COVER, and FIGHT_TOWARD_ENEMY_JUNGLE are all present, emphasize post-kill escape risk. Explain that the kill angle may still exist mechanically, but expected value drops if the player cannot leave after the kill.
+- If ENEMY_SUPPORT_MOVE_FIRST is present, mention support first move as a real cover risk for Emerald, Diamond, and Master+ tiers. For Iron, Bronze, or Silver, explain it simply as an unseen support punishing an extended fight unless the input makes support timing very obvious.
+- REASONABLE_COVERED_KILL_ATTEMPT means the play is not automatically bad. Evaluate whether the player correctly used ally cover and ended the fight quickly.
+- In coverAndEscapeAnalysis, answer: Did the player fight toward ally cover or enemy jungle? Was allied jungle/support cover available? Was the post-kill escape route reasonable? Was the play a bad fight, a reasonable covered kill attempt, or a high-risk 1-for-1?
+
+Level 3-E tier-specific coaching depth:
+- For Iron, Bronze, and Silver: keep coverAndEscapeAnalysis simple. Focus on whether enemy jungle location was known, whether Flash or mobility existed, and whether there was a clear escape route. Avoid advanced support first move, countergank window, tempo, and opportunity cost unless the input makes them obvious.
+- For Gold and Platinum: discuss enemy jungle tracking, ally jungle side, lane state, and basic post-kill escape planning. Ask whether the enemy jungle was missing or nearby, whether ally jungle was same side or opposite side, and whether wave state made the fight risky.
+- For Emerald and Diamond: discuss fight direction, ally jungle cover, enemy jungle cover, support roam timing, and 1-for-1 tradeoff. Ask whether the player fought toward ally cover or enemy jungle, whether allied jungle/support could realistically cover, and whether the kill was still good if the player died after the kill.
+- For Master+: discuss expected value, tempo, wave crash, recall timing, cover direction, opportunity cost, and the next 30-90 seconds. Ask whether the kill created real tempo advantage or only forced a low-value 1-for-1, and whether dying after the kill lost wave, reset timing, river control, or objective setup.
+- Risk tags are tier-independent, but explanations, reflection questions, coverAndEscapeAnalysis, and next-game goals must be tier-aware.
+
 Output rules:
 - Return ONLY valid JSON.
 - Do not include markdown.
@@ -353,6 +371,7 @@ Return ONLY valid JSON with this exact structure:
       "explanation": "string (Korean explanation)"
     }
   ],
+  "coverAndEscapeAnalysis": "string (Korean; fill when Level 3-E cover/fight-direction fields or tags are relevant, otherwise empty string)",
   "next_laning_goal": "string (one concrete Korean goal for the next game)",
   "risk_checklist": ["string", "string", "string (2–4 items in Korean)"],
   "confidence_note": "string (Korean)"
@@ -363,6 +382,7 @@ Field meaning:
 - main_question: The single most important question for this scenario. Write in Korean. Must be one question only.
 - follow_up_questions: 1–2 follow-up questions that do NOT overlap with main_question. Write in Korean.
 - possible_risk_factors: Explain the generated risk tags in player-friendly Korean. Keep tag names in English.
+- coverAndEscapeAnalysis: A concise Korean section about jungle/support cover, fight direction, and post-kill escape route. If Level 3-E fields are not relevant, return an empty string.
 - next_laning_goal: One concrete habit or decision rule the player can apply next game. Write in Korean. Prefer condition-based rules like "A 상황에서는 B를 먼저 확인한다."
 - risk_checklist: 2–4 short Korean checklist items the player should mentally check in similar situations.
 - confidence_note: How confident this review is and why, based only on given input. Write in Korean.

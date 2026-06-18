@@ -93,3 +93,52 @@ export const allyJungleSideDetailOptions: [string, string][] = [
   ["base_or_dead", "우리 정글이 귀환 중이거나 죽어 있었다"],
   ["unknown", "잘 모르겠다"],
 ];
+
+export const enemyJungleInfoStateOptions: [string, string][] = [
+  ["unknown", "위치를 몰랐다"],
+  ["seen_far", "멀리 보였다"],
+  ["seen_near", "근처에 보였다"],
+  ["seen_but_ignored", "봤지만 무시했다"],
+  ["not_sure", "잘 모르겠다"],
+];
+
+export const enemyJungleLastSeenSideOptions: [string, string][] = [
+  ["top_side", "탑 쪽"],
+  ["bot_side", "바텀 쪽"],
+  ["river_top", "윗강가"],
+  ["river_bot", "아랫강가"],
+  ["mid_near", "미드 근처"],
+  ["unknown", "모르겠다"],
+];
+
+export const allyJungleCoverStateOptions: [string, string][] = [
+  ["same_side_cover", "같은 쪽 커버"],
+  ["opposite_side", "반대쪽"],
+  ["near_mid", "미드 근처"],
+  ["too_far", "너무 멀었다"],
+  ["unknown", "모르겠다"],
+];
+
+export const fightDirectionRelativeToCoverOptions: [string, string][] = [
+  ["toward_ally_cover", "우리 쪽으로 싸움"],
+  ["toward_enemy_jungle", "상대 정글 쪽으로 싸움"],
+  ["away_from_enemy_jungle", "상대 정글 반대로 이탈"],
+  ["center_lane", "미드 중앙"],
+  ["unknown", "모르겠다"],
+];
+
+export const postKillEscapePlanOptions: [string, string][] = [
+  ["clear_escape_route", "탈출 경로가 있었다"],
+  ["escape_through_ally_side", "우리 쪽으로 빠졌다"],
+  ["escape_through_enemy_side", "상대 쪽으로 빠졌다"],
+  ["no_escape_plan", "탈출 계획이 없었다"],
+  ["unknown", "모르겠다"],
+];
+
+export const supportRoamStateOptions: [string, string][] = [
+  ["ally_support_can_move", "우리 서폿이 움직일 수 있었다"],
+  ["enemy_support_missing", "상대 서폿이 안 보였다"],
+  ["enemy_support_can_move_first", "상대 서폿이 먼저 움직일 수 있었다"],
+  ["both_supports_unknown", "양쪽 다 모르겠다"],
+  ["not_relevant", "해당 없음"],
+];

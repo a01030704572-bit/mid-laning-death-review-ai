@@ -92,8 +92,22 @@ export default function ReviewResultCard({ riskTags, scenarioType, result }: Pro
         </div>
       )}
 
-      {/* Possible Risk Factors */}
       {result.possible_risk_factors && result.possible_risk_factors.length > 0 && (
+        <div>
+          <h3 className="font-semibold">감지된 판단 요소</h3>
+          <div className="mt-2 space-y-3">
+            {result.possible_risk_factors.map((factor, index) => (
+              <div key={index} className="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
+                <p className="text-xs font-semibold text-zinc-500">{factor.tag}</p>
+                <p className="mt-1 text-sm text-zinc-700">{factor.explanation}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Possible Risk Factors */}
+      {false && result.possible_risk_factors && result.possible_risk_factors.length > 0 && (
         <div>
           <h3 className="font-semibold">가능한 위험 요인</h3>
           <div className="mt-2 space-y-3">
@@ -105,6 +119,12 @@ export default function ReviewResultCard({ riskTags, scenarioType, result }: Pro
             ))}
           </div>
         </div>
+      )}
+
+      {result.coverAndEscapeAnalysis && (
+        <Section title="정글/서폿 커버와 이탈 경로">
+          <p>{result.coverAndEscapeAnalysis}</p>
+        </Section>
       )}
 
       {/* Next Laning Goal */}

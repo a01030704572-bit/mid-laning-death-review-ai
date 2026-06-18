@@ -11,6 +11,12 @@ import {
   wardLocationDetailOptions,
   enemyMidStateOptions,
   allyJungleSideDetailOptions,
+  enemyJungleInfoStateOptions,
+  enemyJungleLastSeenSideOptions,
+  allyJungleCoverStateOptions,
+  fightDirectionRelativeToCoverOptions,
+  postKillEscapePlanOptions,
+  supportRoamStateOptions,
 } from "@/lib/modules/vision/options";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -45,6 +51,12 @@ const initialInput: DeathReviewInput = {
   wardLocationDetail: "unknown",
   enemyMidState: "unknown",
   allyJungleSideDetail: "unknown",
+  enemyJungleInfoState: "not_sure",
+  enemyJungleLastSeenSide: "unknown",
+  allyJungleCoverState: "unknown",
+  fightDirectionRelativeToCover: "unknown",
+  postKillEscapePlan: "unknown",
+  supportRoamState: "not_relevant",
   enemyKeyCooldownsKnown: "",
   myKeyCooldownsKnown: "",
   matchupNote: "",
@@ -705,6 +717,45 @@ export default function DeathReviewForm({ onResult }: Props) {
                     onChange={(v) => updateField("allyJungleSideDetail", v as DeathReviewInput["allyJungleSideDetail"])}
                     options={allyJungleSideDetailOptions}
                   />
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <SelectField
+                      label="상대 정글 정보"
+                      value={input.enemyJungleInfoState}
+                      onChange={(v) => updateField("enemyJungleInfoState", v as DeathReviewInput["enemyJungleInfoState"])}
+                      options={enemyJungleInfoStateOptions}
+                    />
+                    <SelectField
+                      label="상대 정글 마지막 위치"
+                      value={input.enemyJungleLastSeenSide}
+                      onChange={(v) => updateField("enemyJungleLastSeenSide", v as DeathReviewInput["enemyJungleLastSeenSide"])}
+                      options={enemyJungleLastSeenSideOptions}
+                    />
+                    <SelectField
+                      label="우리 정글 커버"
+                      value={input.allyJungleCoverState}
+                      onChange={(v) => updateField("allyJungleCoverState", v as DeathReviewInput["allyJungleCoverState"])}
+                      options={allyJungleCoverStateOptions}
+                    />
+                    <SelectField
+                      label="교전/이탈 방향"
+                      value={input.fightDirectionRelativeToCover}
+                      onChange={(v) => updateField("fightDirectionRelativeToCover", v as DeathReviewInput["fightDirectionRelativeToCover"])}
+                      options={fightDirectionRelativeToCoverOptions}
+                    />
+                    <SelectField
+                      label="킬 이후 탈출 계획"
+                      value={input.postKillEscapePlan}
+                      onChange={(v) => updateField("postKillEscapePlan", v as DeathReviewInput["postKillEscapePlan"])}
+                      options={postKillEscapePlanOptions}
+                    />
+                    <SelectField
+                      label="서폿 개입 가능성"
+                      value={input.supportRoamState}
+                      onChange={(v) => updateField("supportRoamState", v as DeathReviewInput["supportRoamState"])}
+                      options={supportRoamStateOptions}
+                    />
+                  </div>
 
                   {/* Only show cooldown fields here if NOT already shown above */}
                   {!scenarioExposedAdvanced.includes("enemyKeyCooldownsKnown") && (

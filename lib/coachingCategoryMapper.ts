@@ -89,9 +89,23 @@ export function mapCoachingCategories(
     riskTagSet.has("UNTRACKED_PUSH") ||
     riskTagSet.has("POSSIBLE_GANK_SETUP") ||
     riskTagSet.has("MID_JUNGLE_COLLAPSE") ||
-    riskTagSet.has("SIDE_PRESSURE_UNTRACKED")
+    riskTagSet.has("SIDE_PRESSURE_UNTRACKED") ||
+    riskTagSet.has("KNOWN_JUNGLE_THREAT_IGNORED") ||
+    riskTagSet.has("ENEMY_JUNGLER_NEARBY") ||
+    riskTagSet.has("NO_ALLY_COVER") ||
+    riskTagSet.has("FIGHT_TOWARD_ENEMY_JUNGLE") ||
+    riskTagSet.has("POST_KILL_ESCAPE_RISK") ||
+    riskTagSet.has("ALLY_JUNGLE_COVER_AVAILABLE") ||
+    riskTagSet.has("REASONABLE_COVERED_KILL_ATTEMPT")
   ) {
     addCategory(categories, "JUNGLE_TRACKING");
+  }
+
+  if (
+    riskTagSet.has("ENEMY_SUPPORT_MOVE_FIRST") ||
+    riskTagSet.has("SUPPORT_ROAM_WINDOW")
+  ) {
+    addCategory(categories, "ROAMING_TEMPO");
   }
 
   if (

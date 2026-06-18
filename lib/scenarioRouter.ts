@@ -22,6 +22,8 @@ const TRADE_ACTIONS = new Set(["trade", "kill_angle"]);
 
 const GANK_RISK_TAGS = new Set<RiskTag>([
   "ENEMY_JUNGLER_UNKNOWN",
+  "ENEMY_JUNGLER_NEARBY",
+  "KNOWN_JUNGLE_THREAT_IGNORED",
   "NO_RIVER_VISION",
   "POSSIBLE_GANK_SETUP",
 ]);

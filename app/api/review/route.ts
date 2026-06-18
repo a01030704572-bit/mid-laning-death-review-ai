@@ -20,7 +20,7 @@ export async function POST(req: Request) {
 
     const coachingCategories = mapCoachingCategories(input, riskTags);
     const coachingKnowledgeBlock =
-      buildCoachingKnowledgeBlock(coachingCategories);
+      buildCoachingKnowledgeBlock(coachingCategories, input, riskTags);
 
     const prompt = buildReviewPrompt(
       input,

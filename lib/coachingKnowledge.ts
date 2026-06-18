@@ -1,4 +1,20 @@
 import { CoachingCategory, COACHING_CATEGORY_LABELS } from "./coachingCategories";
+import { DeathReviewInput, RiskTag } from "@/types/review";
+
+const LEVEL_3E_TAGS = new Set<RiskTag>([
+  "KNOWN_JUNGLE_THREAT_IGNORED",
+  "ENEMY_JUNGLER_NEARBY",
+  "NO_ALLY_COVER",
+  "FIGHT_TOWARD_ENEMY_JUNGLE",
+  "POST_KILL_ESCAPE_RISK",
+  "NO_ESCAPE_PLAN",
+  "ENEMY_SUPPORT_MOVE_FIRST",
+  "ALLY_JUNGLE_COVER_AVAILABLE",
+  "FIGHT_TOWARD_ALLY_COVER",
+  "ESCAPE_ROUTE_TO_ALLY_SIDE",
+  "SUPPORT_ROAM_WINDOW",
+  "REASONABLE_COVERED_KILL_ATTEMPT",
+]);
 
 export const COACHING_CATEGORY_HINTS: Record<CoachingCategory, string[]> = {
   CORE_MID_LANE: [
@@ -67,12 +83,56 @@ export const COACHING_CATEGORY_HINTS: Record<CoachingCategory, string[]> = {
   ],
 };
 
+function hasLevel3EContext(input?: DeathReviewInput, riskTags: RiskTag[] = []) {
+  return (
+    riskTags.some((tag) => LEVEL_3E_TAGS.has(tag)) ||
+    Boolean(input && (
+      input.enemyJungleInfoState !== "not_sure" ||
+      input.enemyJungleLastSeenSide !== "unknown" ||
+      input.allyJungleCoverState !== "unknown" ||
+      input.fightDirectionRelativeToCover !== "unknown" ||
+      input.postKillEscapePlan !== "unknown" ||
+      input.supportRoamState !== "not_relevant"
+    ))
+  );
+}
+
+function buildLevel3EKnowledgeBlock(
+  input?: DeathReviewInput,
+  riskTags: RiskTag[] = []
+): string {
+  if (!hasLevel3EContext(input, riskTags)) return "";
+
+  const tagSet = new Set<RiskTag>(riskTags);
+  const enemyInfo = input?.enemyJungleInfoState ?? "not_sure";
+  const tier = input?.playerTier ?? "unknown";
+
+  const lines = [
+    "Category: LEVEL_3E_JUNGLE_SUPPORT_COVER (Jungle / Support Cover & Fight Direction)",
+    "- Distinguish unknown jungle from known-but-accepted risk.",
+    "- If enemyJungleInfoState is seen_far, seen_near, or seen_but_ignored, do not say the enemy jungle location was unknown.",
+    "- If enemyJungleInfoState is seen_but_ignored, frame it as information interpretation, risk acceptance, or disrespect of known cover.",
+    "- If REASONABLE_COVERED_KILL_ATTEMPT is present, do not blindly criticize the play; evaluate ally cover, fight direction, fight duration, and escape route.",
+    "- If the player fought toward enemy jungle without ally cover, emphasize post-kill escape risk and whether the kill became a low-value 1-for-1.",
+    "- For Master+ with support first move, enemy-side fight direction, post-kill escape risk, or no ally cover, discuss expected value, 1-for-1 tradeoff, wave/recall tempo loss, next 30-60 seconds, and opportunity cost when relevant.",
+    `- Current tier: ${tier}. Current enemyJungleInfoState: ${enemyInfo}.`,
+  ];
+
+  if (tagSet.has("ENEMY_SUPPORT_MOVE_FIRST")) {
+    lines.push("- ENEMY_SUPPORT_MOVE_FIRST: scale depth by tier; low tier gets simple unseen-support danger, high tier gets support first move and mid-jungle-support timing.");
+  }
+
+  return lines.join("\n");
+}
+
 export function buildCoachingKnowledgeBlock(
-  categories: CoachingCategory[]
+  categories: CoachingCategory[],
+  input?: DeathReviewInput,
+  riskTags: RiskTag[] = []
 ): string {
   const uniqueCategories = Array.from(new Set(categories));
 
-  return uniqueCategories
+  const categoryBlock = uniqueCategories
     .map((category) => {
       const label = COACHING_CATEGORY_LABELS[category];
       const hints = COACHING_CATEGORY_HINTS[category];
@@ -83,4 +143,8 @@ export function buildCoachingKnowledgeBlock(
       ].join("\n");
     })
     .join("\n\n");
+
+  const level3EBlock = buildLevel3EKnowledgeBlock(input, riskTags);
+
+  return [categoryBlock, level3EBlock].filter(Boolean).join("\n\n");
 }
