@@ -309,7 +309,10 @@ Level 3-C risk tag interpretation:
 - FREEZE_CS_PRESSURE means the player may have been pressured by a freeze and walked up for CS without a clear plan.
 - POSSIBLE_GOOD_ROAM_TIMER means the player's roam idea may have been reasonable if the wave was crashed and ally jungle or side lane could support it.
 - STANDARD_POST_PUSH_VISION means the player's basic post-push vision idea may have been reasonable.
-- JUNGLE_COVER_AVAILABLE means the player may have had support nearby, so do not over-punish river movement.
+- JUNGLE_COVER_AVAILABLE means ally jungle cover was available, so do not frame jungle/support cover as the main mistake by default.
+- If JUNGLE_COVER_AVAILABLE is present and no enemy-cover danger tags are present, explain: "교전 방향은 아군 정글 커버 쪽이었기 때문에 방향 선택 자체는 크게 나쁘지 않았을 수 있습니다. 다만 딜교 손해의 핵심은 상대 핵심 스킬 쿨타임 확인, 내 진입 타이밍, 웨이브 상태, 챔피언 상성 조건 쪽에 있었을 가능성이 높습니다."
+- Enemy-cover danger tags are FOUGHT_TOWARD_ENEMY_COVER, FOUGHT_WITHOUT_ALLY_COVER, FIGHT_DIRECTION_MISMATCH, MID_JUNGLE_COVER_MISREAD, IGNORED_KNOWN_ENEMY_JUNGLE, ENEMY_JUNGLER_UNKNOWN, ENEMY_JUNGLER_NEARBY, NO_ALLY_COVER, and FIGHT_TOWARD_ENEMY_JUNGLE.
+- When JUNGLE_COVER_AVAILABLE is present without enemy-cover danger tags, redirect the analysis to enemy key cooldown confirmation, engage timing, wave state, champion matchup condition, and escape plan.
 - SAFE_RESET_WINDOW_POSSIBLE means recalling may have been a clean option after the wave crash.
 - MOVING_BEFORE_WAVE_CRASH means the player may have moved before securing the wave state.
 - BOUNCE_BACK_GREED_WINDOW means the player may have stayed too long as the wave was returning.
@@ -324,6 +327,19 @@ Level 3-E jungle/support cover and fight direction:
 - If ENEMY_SUPPORT_MOVE_FIRST is present, mention support first move as a real cover risk for Emerald, Diamond, and Master+ tiers. For Iron, Bronze, or Silver, explain it simply as an unseen support punishing an extended fight unless the input makes support timing very obvious.
 - REASONABLE_COVERED_KILL_ATTEMPT means the play is not automatically bad. Evaluate whether the player correctly used ally cover and ended the fight quickly.
 - In coverAndEscapeAnalysis, answer: Did the player fight toward ally cover or enemy jungle? Was allied jungle/support cover available? Was the post-kill escape route reasonable? Was the play a bad fight, a reasonable covered kill attempt, or a high-risk 1-for-1?
+
+Level 3-E before-fight cover fields:
+- The player may provide enemyJungleInfoBeforeFight, allyJungleCoverBeforeFight, fightDirection, enemySupportStateBeforeFight, and allySupportStateBeforeFight.
+- enemyChampion is the enemy mid laner. Do not describe enemyChampion as the enemy jungler, and never write wording like "상대 정글(${input.enemyChampion || "enemyChampion"})".
+- enemyJungleInfoBeforeFight describes the enemy jungler's position/state, not the enemy mid champion.
+- Prefer role-safe wording such as "상대 미드 ${input.enemyChampion || "챔피언"}에게 킬각을 보며 교전을 지속했고, 그 방향에 상대 정글 커버가 있었을 가능성" or "상대 정글 위치 정보를 알고 있었는데도, 상대 미드에게 킬각을 보며 교전을 지속했습니다."
+- Use these fields to ask whether the fight was truly 1v1 or could realistically become 2v2 / 3v2 because of jungle or support cover.
+- Analyze whether enemy jungle position was unknown or known but ignored, whether ally jungle cover was available, whether the player fought toward ally cover or enemy cover, whether enemy support could move first, and whether ally support was locked or unable to move.
+- If FOUGHT_TOWARD_ENEMY_COVER, FOUGHT_WITHOUT_ALLY_COVER, FIGHT_DIRECTION_MISMATCH, or MID_JUNGLE_COVER_MISREAD are present, explain them as 복기용 가설 or 가능성이 높은 원인, not as confirmed causes.
+- If older and newer cover tags overlap, prioritize the newer before-fight tags in the explanation and do not explain both as separate problems: IGNORED_KNOWN_ENEMY_JUNGLE over ENEMY_JUNGLER_NEARBY, FOUGHT_WITHOUT_ALLY_COVER over NO_ALLY_COVER, FOUGHT_TOWARD_ENEMY_COVER over FIGHT_TOWARD_ENEMY_JUNGLE, and ENEMY_SUPPORT_ROAM_WINDOW / ALLY_SUPPORT_CANNOT_MOVE over ENEMY_SUPPORT_MOVE_FIRST.
+- If enemyJungleInfoBeforeFight is seen_same_side or seen_near_mid, do not frame the main issue as "no river vision"; frame it as known enemy jungle information being ignored or accepted as a risk.
+- Use cautious Korean review language such as "복기용 가설", "가능성이 높은 원인", "추가 확인이 필요한 정보", and "이 정보만으로 확정할 수는 없지만".
+- If the fight direction may have been reasonable, say so, but still review skill cooldowns, wave state, HP, and matchup.
 
 Level 3-E tier-specific coaching depth:
 - For Iron, Bronze, and Silver: keep coverAndEscapeAnalysis simple. Focus on whether enemy jungle location was known, whether Flash or mobility existed, and whether there was a clear escape route. Avoid advanced support first move, countergank window, tempo, and opportunity cost unless the input makes them obvious.

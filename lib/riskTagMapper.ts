@@ -7,6 +7,27 @@ export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
   const isSoloKillContext =
     input.currentOutcome === "solo_kill" ||
     input.deathCause === "solo_kill";
+  const enemyJungleInfoState = input.enemyJungleInfoState ?? "unknown";
+  const hasNearbyKnownThreat =
+    enemyJungleInfoState === "seen_near" ||
+    enemyJungleInfoState === "seen_but_ignored";
+  const hasAllyCover =
+    input.allyJungleCoverState === "same_side_cover" ||
+    input.allyJungleCoverState === "near_mid";
+  const hasGoodPostKillEscape =
+    input.postKillEscapePlan === "escape_through_ally_side" ||
+    input.postKillEscapePlan === "clear_escape_route";
+  const explicitEnemyJungleInfo = input.enemyJungleInfoBeforeFight;
+  const explicitAllyJungleCover = input.allyJungleCoverBeforeFight;
+  const explicitFightDirection = input.fightDirection;
+  const explicitEnemySupport = input.enemySupportStateBeforeFight;
+  const explicitAllySupport = input.allySupportStateBeforeFight;
+  const hasExplicitEnemyJungleBeforeFightInfo =
+    explicitEnemyJungleInfo !== undefined &&
+    explicitEnemyJungleInfo !== "unknown";
+  const knownEnemyJungleBeforeFight =
+    explicitEnemyJungleInfo === "seen_same_side" ||
+    explicitEnemyJungleInfo === "seen_near_mid";
 
   // Pre-lane / level 1 vision or invade risk
   if (input.gameTime === "pre_lane" ||
@@ -19,6 +40,128 @@ export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
 
   if (input.laneState === "pushing") {
     tags.add("UNTRACKED_PUSH");
+  }
+
+  if (enemyJungleInfoState === "unknown" && !hasExplicitEnemyJungleBeforeFightInfo) {
+    tags.add("ENEMY_JUNGLER_UNKNOWN");
+  }
+
+  if (enemyJungleInfoState === "seen_near") {
+    tags.add("ENEMY_JUNGLER_NEARBY");
+  }
+
+  if (enemyJungleInfoState === "seen_but_ignored") {
+    tags.add("KNOWN_JUNGLE_THREAT_IGNORED");
+  }
+
+  if (hasAllyCover) {
+    tags.add("ALLY_JUNGLE_COVER_AVAILABLE");
+  }
+
+  if (
+    input.allyJungleCoverState === "opposite_side" ||
+    input.allyJungleCoverState === "too_far"
+  ) {
+    tags.add("NO_ALLY_COVER");
+  }
+
+  if (input.fightDirectionRelativeToCover === "toward_ally_cover") {
+    tags.add("FIGHT_TOWARD_ALLY_COVER");
+  }
+
+  if (input.fightDirectionRelativeToCover === "toward_enemy_jungle") {
+    tags.add("FIGHT_TOWARD_ENEMY_JUNGLE");
+  }
+
+  if (input.postKillEscapePlan === "escape_through_ally_side") {
+    tags.add("ESCAPE_ROUTE_TO_ALLY_SIDE");
+  }
+
+  if (
+    input.postKillEscapePlan === "escape_through_enemy_side" ||
+    input.postKillEscapePlan === "no_escape_plan"
+  ) {
+    tags.add("POST_KILL_ESCAPE_RISK");
+  }
+
+  if (input.postKillEscapePlan === "no_escape_plan") {
+    tags.add("NO_ESCAPE_PLAN");
+  }
+
+  if (input.supportRoamState === "ally_support_can_move") {
+    tags.add("SUPPORT_ROAM_WINDOW");
+  }
+
+  if (
+    input.supportRoamState === "enemy_support_can_move_first" ||
+    input.supportRoamState === "enemy_support_missing"
+  ) {
+    tags.add("ENEMY_SUPPORT_MOVE_FIRST");
+  }
+
+  if (
+    hasNearbyKnownThreat &&
+    hasAllyCover &&
+    input.fightDirectionRelativeToCover === "toward_ally_cover" &&
+    hasGoodPostKillEscape
+  ) {
+    tags.add("REASONABLE_COVERED_KILL_ATTEMPT");
+  }
+
+  if (
+    explicitFightDirection === "toward_enemy_jungle" &&
+    explicitEnemyJungleInfo &&
+    explicitEnemyJungleInfo !== "unknown" &&
+    explicitEnemyJungleInfo !== "dead_or_recalled"
+  ) {
+    tags.add("FOUGHT_TOWARD_ENEMY_COVER");
+  }
+
+  if (
+    explicitAllyJungleCover === "opposite_side" ||
+    explicitAllyJungleCover === "dead_or_recalled" ||
+    explicitAllyJungleCover === "resetting"
+  ) {
+    tags.add("FOUGHT_WITHOUT_ALLY_COVER");
+  }
+
+  if (
+    explicitEnemyJungleInfo === "seen_same_side" ||
+    explicitEnemyJungleInfo === "seen_near_mid"
+  ) {
+    tags.add("IGNORED_KNOWN_ENEMY_JUNGLE");
+  }
+
+  if (
+    explicitEnemySupport === "missing" ||
+    explicitEnemySupport === "roaming_mid"
+  ) {
+    tags.add("ENEMY_SUPPORT_ROAM_WINDOW");
+  }
+
+  if (
+    explicitAllySupport === "locked_bot" ||
+    explicitAllySupport === "dead_or_recalled"
+  ) {
+    tags.add("ALLY_SUPPORT_CANNOT_MOVE");
+  }
+
+  if (
+    explicitFightDirection === "toward_enemy_jungle" &&
+    explicitAllyJungleCover === "opposite_side"
+  ) {
+    tags.add("FIGHT_DIRECTION_MISMATCH");
+  }
+
+  const coreCoverRiskCount = [
+    "FOUGHT_TOWARD_ENEMY_COVER",
+    "FOUGHT_WITHOUT_ALLY_COVER",
+    "IGNORED_KNOWN_ENEMY_JUNGLE",
+    "FIGHT_DIRECTION_MISMATCH",
+  ].filter((tag) => tags.has(tag as RiskTag)).length;
+
+  if (coreCoverRiskCount >= 2) {
+    tags.add("MID_JUNGLE_COVER_MISREAD");
   }
 
   if (input.laneState === "enemy_tower_side") {
@@ -59,7 +202,7 @@ export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
     tags.add("COOLDOWN_DISRESPECT");
   }
 
-  if (input.visionState === "no_river_vision") {
+  if (input.visionState === "no_river_vision" && !knownEnemyJungleBeforeFight) {
     tags.add("NO_RIVER_VISION");
   }
 
@@ -67,7 +210,11 @@ export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
     tags.add("ONE_SIDE_VISION_ONLY");
   }
 
-  if (input.enemyJungleLocation === "unknown") {
+  if (
+    input.enemyJungleLocation === "unknown" &&
+    !hasExplicitEnemyJungleBeforeFightInfo &&
+    (enemyJungleInfoState === "unknown" || enemyJungleInfoState === "not_sure")
+  ) {
     tags.add("ENEMY_JUNGLER_UNKNOWN");
   }
 

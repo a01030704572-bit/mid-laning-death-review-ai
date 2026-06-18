@@ -17,6 +17,11 @@ import {
   fightDirectionRelativeToCoverOptions,
   postKillEscapePlanOptions,
   supportRoamStateOptions,
+  enemyJungleInfoBeforeFightOptions,
+  allyJungleCoverBeforeFightOptions,
+  fightDirectionOptions,
+  enemySupportStateBeforeFightOptions,
+  allySupportStateBeforeFightOptions,
 } from "@/lib/modules/vision/options";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -718,7 +723,7 @@ export default function DeathReviewForm({ onResult }: Props) {
                     options={allyJungleSideDetailOptions}
                   />
 
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="hidden">
                     <SelectField
                       label="상대 정글 정보"
                       value={input.enemyJungleInfoState}
@@ -755,6 +760,49 @@ export default function DeathReviewForm({ onResult }: Props) {
                       onChange={(v) => updateField("supportRoamState", v as DeathReviewInput["supportRoamState"])}
                       options={supportRoamStateOptions}
                     />
+                  </div>
+
+                  <SelectField
+                    label="킬 이후 탈출 계획"
+                    value={input.postKillEscapePlan}
+                    onChange={(v) => updateField("postKillEscapePlan", v as DeathReviewInput["postKillEscapePlan"])}
+                    options={postKillEscapePlanOptions}
+                  />
+
+                  <div className="space-y-3 rounded-xl border border-zinc-200 p-3">
+                    <h3 className="text-sm font-semibold text-zinc-900">정글/서폿 커버와 교전 방향</h3>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <SelectField
+                        label="상대 정글 위치 정보"
+                        value={input.enemyJungleInfoBeforeFight ?? "unknown"}
+                        onChange={(v) => updateField("enemyJungleInfoBeforeFight", v as DeathReviewInput["enemyJungleInfoBeforeFight"])}
+                        options={enemyJungleInfoBeforeFightOptions}
+                      />
+                      <SelectField
+                        label="우리 정글 커버 상태"
+                        value={input.allyJungleCoverBeforeFight ?? "unknown"}
+                        onChange={(v) => updateField("allyJungleCoverBeforeFight", v as DeathReviewInput["allyJungleCoverBeforeFight"])}
+                        options={allyJungleCoverBeforeFightOptions}
+                      />
+                      <SelectField
+                        label="내가 싸운 방향"
+                        value={input.fightDirection ?? "unknown"}
+                        onChange={(v) => updateField("fightDirection", v as DeathReviewInput["fightDirection"])}
+                        options={fightDirectionOptions}
+                      />
+                      <SelectField
+                        label="상대 서폿 상태"
+                        value={input.enemySupportStateBeforeFight ?? "unknown"}
+                        onChange={(v) => updateField("enemySupportStateBeforeFight", v as DeathReviewInput["enemySupportStateBeforeFight"])}
+                        options={enemySupportStateBeforeFightOptions}
+                      />
+                      <SelectField
+                        label="우리 서폿 상태"
+                        value={input.allySupportStateBeforeFight ?? "unknown"}
+                        onChange={(v) => updateField("allySupportStateBeforeFight", v as DeathReviewInput["allySupportStateBeforeFight"])}
+                        options={allySupportStateBeforeFightOptions}
+                      />
+                    </div>
                   </div>
 
                   {/* Only show cooldown fields here if NOT already shown above */}
@@ -866,31 +914,40 @@ function SurvivalResourcesField({
   values: string[];
   onToggle: (v: string) => void;
 }) {
+  const selectedLabels = SURVIVAL_RESOURCE_OPTIONS
+    .filter(([value]) => values.includes(value))
+    .map(([, label]) => label);
+
   return (
     <div>
       <label className="block text-sm font-medium text-zinc-800">
-        내 생존 자원 상태 <span className="text-xs font-normal text-zinc-400">(해당하는 것 모두 선택)</span>
+        부족한 생존 자원 / 위험 요소
       </label>
-      <div className="mt-2 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+      <p className="mt-1 text-xs text-zinc-500">
+        해당되는 위험 요소만 선택하세요. 선택하지 않으면 해당 없음 또는 모름으로 처리됩니다.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2 text-sm">
         {SURVIVAL_RESOURCE_OPTIONS.map(([value, label]) => (
-          <label
+          <button
             key={value}
-            className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 transition-colors
+            type="button"
+            aria-pressed={values.includes(value)}
+            onClick={() => onToggle(value)}
+            className={`rounded-full border px-3 py-2 text-sm font-medium transition-colors
               ${values.includes(value)
-                ? "border-zinc-700 bg-zinc-100 font-medium"
-                : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
+                ? "border-zinc-900 bg-zinc-900 text-white shadow-sm"
+                : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50"
               }`}
           >
-            <input
-              type="checkbox"
-              checked={values.includes(value)}
-              onChange={() => onToggle(value)}
-              className="h-3.5 w-3.5"
-            />
             {label}
-          </label>
+          </button>
         ))}
       </div>
+      <p className="mt-2 text-xs text-zinc-500">
+        {selectedLabels.length > 0
+          ? `선택된 위험 요소: ${selectedLabels.join(" · ")}`
+          : "선택된 위험 요소 없음"}
+      </p>
     </div>
   );
 }

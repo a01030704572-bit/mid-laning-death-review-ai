@@ -6,6 +6,11 @@ type Props = {
   result: ReviewResult;
 };
 
+const RISK_FACTOR_EXPLANATION_OVERRIDES: Record<string, string> = {
+  JUNGLE_COVER_AVAILABLE:
+    "교전 방향은 아군 정글 커버 쪽이었기 때문에 방향 선택 자체는 크게 나쁘지 않았을 수 있습니다. 다만 딜교 손해의 핵심은 상대 핵심 스킬 쿨타임 확인, 내 진입 타이밍, 웨이브 상태, 챔피언 상성 조건 쪽에 있었을 가능성이 높습니다.",
+};
+
 const SCENARIO_LABELS: Record<ScenarioType, { label: string; color: string }> = {
   PRE_LANE_VISION:      { label: "레벨 1 시야/침범", color: "bg-purple-100 text-purple-800 border-purple-300" },
   GANKED_WHILE_PUSHING: { label: "푸시 중 갱 당함",  color: "bg-red-100 text-red-800 border-red-300" },
@@ -25,9 +30,50 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function getDisplayRiskTags(riskTags: RiskTag[]) {
+  const tagSet = new Set<RiskTag>(riskTags);
+  const hiddenTags = new Set<RiskTag>();
+
+  if (tagSet.has("IGNORED_KNOWN_ENEMY_JUNGLE")) {
+    hiddenTags.add("ENEMY_JUNGLER_NEARBY");
+  }
+
+  if (tagSet.has("FOUGHT_WITHOUT_ALLY_COVER")) {
+    hiddenTags.add("NO_ALLY_COVER");
+  }
+
+  if (tagSet.has("FOUGHT_TOWARD_ENEMY_COVER")) {
+    hiddenTags.add("FIGHT_TOWARD_ENEMY_JUNGLE");
+  }
+
+  if (
+    tagSet.has("ENEMY_SUPPORT_ROAM_WINDOW") ||
+    tagSet.has("ALLY_SUPPORT_CANNOT_MOVE")
+  ) {
+    hiddenTags.add("ENEMY_SUPPORT_MOVE_FIRST");
+  }
+
+  return riskTags.filter((tag) => !hiddenTags.has(tag));
+}
+
+function shouldShowRiskFactor(tag: string, riskTags: RiskTag[], displayRiskTags: RiskTag[]) {
+  const generatedTags = new Set<string>(riskTags);
+  const visibleTags = new Set<string>(displayRiskTags);
+
+  return !generatedTags.has(tag) || visibleTags.has(tag);
+}
+
+function getRiskFactorExplanation(tag: string, explanation: string) {
+  return RISK_FACTOR_EXPLANATION_OVERRIDES[tag] ?? explanation;
+}
+
 export default function ReviewResultCard({ riskTags, scenarioType, result }: Props) {
   const detectedScenario = scenarioType ?? result.scenario_type;
   const scenarioInfo = detectedScenario ? SCENARIO_LABELS[detectedScenario] : null;
+  const displayRiskTags = getDisplayRiskTags(riskTags);
+  const displayRiskFactors = result.possible_risk_factors?.filter((factor) =>
+    shouldShowRiskFactor(factor.tag, riskTags, displayRiskTags)
+  );
 
   return (
     <section className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
@@ -54,7 +100,7 @@ export default function ReviewResultCard({ riskTags, scenarioType, result }: Pro
       <div>
         <h3 className="font-semibold">Generated Risk Tags</h3>
         <div className="mt-2 flex flex-wrap gap-2">
-          {riskTags.map((tag) => (
+          {displayRiskTags.map((tag) => (
             <span
               key={tag}
               className="rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-medium"
@@ -92,14 +138,16 @@ export default function ReviewResultCard({ riskTags, scenarioType, result }: Pro
         </div>
       )}
 
-      {result.possible_risk_factors && result.possible_risk_factors.length > 0 && (
+      {displayRiskFactors && displayRiskFactors.length > 0 && (
         <div>
           <h3 className="font-semibold">감지된 판단 요소</h3>
           <div className="mt-2 space-y-3">
-            {result.possible_risk_factors.map((factor, index) => (
+            {displayRiskFactors.map((factor, index) => (
               <div key={index} className="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
                 <p className="text-xs font-semibold text-zinc-500">{factor.tag}</p>
-                <p className="mt-1 text-sm text-zinc-700">{factor.explanation}</p>
+                <p className="mt-1 text-sm text-zinc-700">
+                  {getRiskFactorExplanation(factor.tag, factor.explanation)}
+                </p>
               </div>
             ))}
           </div>

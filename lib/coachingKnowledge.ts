@@ -14,6 +14,26 @@ const LEVEL_3E_TAGS = new Set<RiskTag>([
   "ESCAPE_ROUTE_TO_ALLY_SIDE",
   "SUPPORT_ROAM_WINDOW",
   "REASONABLE_COVERED_KILL_ATTEMPT",
+  "FOUGHT_TOWARD_ENEMY_COVER",
+  "FOUGHT_WITHOUT_ALLY_COVER",
+  "IGNORED_KNOWN_ENEMY_JUNGLE",
+  "ENEMY_SUPPORT_ROAM_WINDOW",
+  "ALLY_SUPPORT_CANNOT_MOVE",
+  "FIGHT_DIRECTION_MISMATCH",
+  "MID_JUNGLE_COVER_MISREAD",
+  "JUNGLE_COVER_AVAILABLE",
+]);
+
+const ENEMY_COVER_DANGER_TAGS = new Set<RiskTag>([
+  "FOUGHT_TOWARD_ENEMY_COVER",
+  "FOUGHT_WITHOUT_ALLY_COVER",
+  "FIGHT_DIRECTION_MISMATCH",
+  "MID_JUNGLE_COVER_MISREAD",
+  "IGNORED_KNOWN_ENEMY_JUNGLE",
+  "ENEMY_JUNGLER_UNKNOWN",
+  "ENEMY_JUNGLER_NEARBY",
+  "NO_ALLY_COVER",
+  "FIGHT_TOWARD_ENEMY_JUNGLE",
 ]);
 
 export const COACHING_CATEGORY_HINTS: Record<CoachingCategory, string[]> = {
@@ -92,7 +112,12 @@ function hasLevel3EContext(input?: DeathReviewInput, riskTags: RiskTag[] = []) {
       input.allyJungleCoverState !== "unknown" ||
       input.fightDirectionRelativeToCover !== "unknown" ||
       input.postKillEscapePlan !== "unknown" ||
-      input.supportRoamState !== "not_relevant"
+      input.supportRoamState !== "not_relevant" ||
+      input.enemyJungleInfoBeforeFight !== undefined ||
+      input.allyJungleCoverBeforeFight !== undefined ||
+      input.fightDirection !== undefined ||
+      input.enemySupportStateBeforeFight !== undefined ||
+      input.allySupportStateBeforeFight !== undefined
     ))
   );
 }
@@ -114,12 +139,29 @@ function buildLevel3EKnowledgeBlock(
     "- If enemyJungleInfoState is seen_but_ignored, frame it as information interpretation, risk acceptance, or disrespect of known cover.",
     "- If REASONABLE_COVERED_KILL_ATTEMPT is present, do not blindly criticize the play; evaluate ally cover, fight direction, fight duration, and escape route.",
     "- If the player fought toward enemy jungle without ally cover, emphasize post-kill escape risk and whether the kill became a low-value 1-for-1.",
+    "- For before-fight fields, ask whether the duel was truly 1v1 or could realistically become 2v2 or 3v2 through jungle/support cover.",
+    "- FOUGHT_TOWARD_ENEMY_COVER, FOUGHT_WITHOUT_ALLY_COVER, FIGHT_DIRECTION_MISMATCH, and MID_JUNGLE_COVER_MISREAD should be framed as review hypotheses, not certain causes.",
+    "- When newer before-fight tags overlap older Level 3-E tags, explain the newer tag once and avoid duplicate risk-factor explanations.",
+    "- enemyChampion is the enemy mid laner, not the enemy jungler. Do not write enemy jungler (enemyChampion) or put the enemy mid champion name after enemy jungler.",
+    "- If enemyJungleInfoBeforeFight is seen_same_side or seen_near_mid, do not frame the main issue as no river vision; frame it as known enemy jungle information being ignored or risk-accepted.",
     "- For Master+ with support first move, enemy-side fight direction, post-kill escape risk, or no ally cover, discuss expected value, 1-for-1 tradeoff, wave/recall tempo loss, next 30-60 seconds, and opportunity cost when relevant.",
     `- Current tier: ${tier}. Current enemyJungleInfoState: ${enemyInfo}.`,
   ];
 
   if (tagSet.has("ENEMY_SUPPORT_MOVE_FIRST")) {
     lines.push("- ENEMY_SUPPORT_MOVE_FIRST: scale depth by tier; low tier gets simple unseen-support danger, high tier gets support first move and mid-jungle-support timing.");
+  }
+
+  const hasEnemyCoverDanger = Array.from(ENEMY_COVER_DANGER_TAGS).some((tag) =>
+    tagSet.has(tag)
+  );
+
+  if (tagSet.has("JUNGLE_COVER_AVAILABLE") && !hasEnemyCoverDanger) {
+    lines.push(
+      "- JUNGLE_COVER_AVAILABLE: do not frame jungle/support cover as the main mistake when no enemy-cover danger tag is present.",
+      "- Preferred Korean explanation: 교전 방향은 아군 정글 커버 쪽이었기 때문에 방향 선택 자체는 크게 나쁘지 않았을 수 있습니다. 다만 딜교 손해의 핵심은 상대 핵심 스킬 쿨타임 확인, 내 진입 타이밍, 웨이브 상태, 챔피언 상성 조건 쪽에 있었을 가능성이 높습니다.",
+      "- Redirect the review toward enemy key cooldown confirmation, engage timing, wave state, champion matchup condition, and escape plan."
+    );
   }
 
   return lines.join("\n");

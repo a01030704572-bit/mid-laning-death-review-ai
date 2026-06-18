@@ -142,3 +142,46 @@ export const supportRoamStateOptions: [string, string][] = [
   ["both_supports_unknown", "양쪽 다 모르겠다"],
   ["not_relevant", "해당 없음"],
 ];
+
+export const enemyJungleInfoBeforeFightOptions: [string, string][] = [
+  ["unknown", "모르겠다"],
+  ["not_seen_recently", "최근에 못 봤다"],
+  ["seen_same_side", "같은 쪽에서 봤다"],
+  ["seen_opposite_side", "반대쪽에서 봤다"],
+  ["seen_near_mid", "미드 근처에서 봤다"],
+  ["dead_or_recalled", "죽었거나 귀환했다"],
+];
+
+export const allyJungleCoverBeforeFightOptions: [string, string][] = [
+  ["unknown", "모르겠다"],
+  ["same_side_near_mid", "같은 쪽 미드 근처"],
+  ["same_side_but_far", "같은 쪽이지만 멀었다"],
+  ["opposite_side", "반대쪽"],
+  ["dead_or_recalled", "죽었거나 귀환했다"],
+  ["resetting", "귀환 중이었다"],
+];
+
+export const fightDirectionOptions: [string, string][] = [
+  ["toward_ally_jungle", "우리 정글 쪽"],
+  ["toward_enemy_jungle", "상대 정글 쪽"],
+  ["toward_top_side", "탑 쪽"],
+  ["toward_bot_side", "바텀 쪽"],
+  ["center_mid", "미드 중앙"],
+  ["unknown", "모르겠다"],
+];
+
+export const enemySupportStateBeforeFightOptions: [string, string][] = [
+  ["unknown", "모르겠다"],
+  ["seen_bot", "바텀에 보였다"],
+  ["missing", "안 보였다"],
+  ["roaming_mid", "미드로 움직였다"],
+  ["dead_or_recalled", "죽었거나 귀환했다"],
+];
+
+export const allySupportStateBeforeFightOptions: [string, string][] = [
+  ["unknown", "모르겠다"],
+  ["can_move_first", "먼저 움직일 수 있었다"],
+  ["locked_bot", "바텀에 묶여 있었다"],
+  ["roaming_mid", "미드로 움직였다"],
+  ["dead_or_recalled", "죽었거나 귀환했다"],
+];

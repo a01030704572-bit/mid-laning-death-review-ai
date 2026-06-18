@@ -79,6 +79,87 @@ export type AllyJungleSideDetail =
   | "base_or_dead"
   | "unknown";
 
+export type EnemyJungleInfoState =
+  | "unknown"
+  | "seen_far"
+  | "seen_near"
+  | "seen_but_ignored"
+  | "not_sure";
+
+export type EnemyJungleLastSeenSide =
+  | "top_side"
+  | "bot_side"
+  | "river_top"
+  | "river_bot"
+  | "mid_near"
+  | "unknown";
+
+export type AllyJungleCoverState =
+  | "same_side_cover"
+  | "opposite_side"
+  | "near_mid"
+  | "too_far"
+  | "unknown";
+
+export type FightDirectionRelativeToCover =
+  | "toward_ally_cover"
+  | "toward_enemy_jungle"
+  | "away_from_enemy_jungle"
+  | "center_lane"
+  | "unknown";
+
+export type PostKillEscapePlan =
+  | "clear_escape_route"
+  | "escape_through_ally_side"
+  | "escape_through_enemy_side"
+  | "no_escape_plan"
+  | "unknown";
+
+export type SupportRoamState =
+  | "ally_support_can_move"
+  | "enemy_support_missing"
+  | "enemy_support_can_move_first"
+  | "both_supports_unknown"
+  | "not_relevant";
+
+export type EnemyJungleInfoBeforeFight =
+  | "unknown"
+  | "not_seen_recently"
+  | "seen_same_side"
+  | "seen_opposite_side"
+  | "seen_near_mid"
+  | "dead_or_recalled";
+
+export type AllyJungleCoverBeforeFight =
+  | "unknown"
+  | "same_side_near_mid"
+  | "same_side_but_far"
+  | "opposite_side"
+  | "dead_or_recalled"
+  | "resetting";
+
+export type FightDirection =
+  | "toward_ally_jungle"
+  | "toward_enemy_jungle"
+  | "toward_top_side"
+  | "toward_bot_side"
+  | "center_mid"
+  | "unknown";
+
+export type EnemySupportStateBeforeFight =
+  | "unknown"
+  | "seen_bot"
+  | "missing"
+  | "roaming_mid"
+  | "dead_or_recalled";
+
+export type AllySupportStateBeforeFight =
+  | "unknown"
+  | "can_move_first"
+  | "locked_bot"
+  | "roaming_mid"
+  | "dead_or_recalled";
+
 export type DeathReviewInput = {
   playerTier: string;
   currentOutcome: string;
@@ -107,6 +188,21 @@ export type DeathReviewInput = {
   wardLocationDetail: WardLocationDetail;
   enemyMidState: EnemyMidState;
   allyJungleSideDetail: AllyJungleSideDetail;
+
+  // Level 3-E Jungle / Support Cover & Fight Direction
+  enemyJungleInfoState: EnemyJungleInfoState;
+  enemyJungleLastSeenSide: EnemyJungleLastSeenSide;
+  allyJungleCoverState: AllyJungleCoverState;
+  fightDirectionRelativeToCover: FightDirectionRelativeToCover;
+  postKillEscapePlan: PostKillEscapePlan;
+  supportRoamState: SupportRoamState;
+
+  // Level 3-E explicit before-fight cover context
+  enemyJungleInfoBeforeFight?: EnemyJungleInfoBeforeFight;
+  allyJungleCoverBeforeFight?: AllyJungleCoverBeforeFight;
+  fightDirection?: FightDirection;
+  enemySupportStateBeforeFight?: EnemySupportStateBeforeFight;
+  allySupportStateBeforeFight?: AllySupportStateBeforeFight;
 
   enemyKeyCooldownsKnown: string;
   myKeyCooldownsKnown: string;
@@ -144,7 +240,26 @@ export type RiskTag =
   | "JUNGLE_COVER_AVAILABLE"
   | "SAFE_RESET_WINDOW_POSSIBLE"
   | "MOVING_BEFORE_WAVE_CRASH"
-  | "BOUNCE_BACK_GREED_WINDOW";
+  | "BOUNCE_BACK_GREED_WINDOW"
+  | "KNOWN_JUNGLE_THREAT_IGNORED"
+  | "ENEMY_JUNGLER_NEARBY"
+  | "NO_ALLY_COVER"
+  | "FIGHT_TOWARD_ENEMY_JUNGLE"
+  | "POST_KILL_ESCAPE_RISK"
+  | "NO_ESCAPE_PLAN"
+  | "ENEMY_SUPPORT_MOVE_FIRST"
+  | "ALLY_JUNGLE_COVER_AVAILABLE"
+  | "FIGHT_TOWARD_ALLY_COVER"
+  | "ESCAPE_ROUTE_TO_ALLY_SIDE"
+  | "SUPPORT_ROAM_WINDOW"
+  | "REASONABLE_COVERED_KILL_ATTEMPT"
+  | "FOUGHT_TOWARD_ENEMY_COVER"
+  | "FOUGHT_WITHOUT_ALLY_COVER"
+  | "IGNORED_KNOWN_ENEMY_JUNGLE"
+  | "ENEMY_SUPPORT_ROAM_WINDOW"
+  | "ALLY_SUPPORT_CANNOT_MOVE"
+  | "FIGHT_DIRECTION_MISMATCH"
+  | "MID_JUNGLE_COVER_MISREAD";
 
 export type ScenarioType =
   | "PRE_LANE_VISION"
@@ -172,6 +287,7 @@ export type ReviewResult = {
   main_question: string;
   follow_up_questions: string[];
   possible_risk_factors: RiskFactor[];
+  coverAndEscapeAnalysis?: string;
   next_laning_goal: string;
   risk_checklist: string[];
   confidence_note: string;

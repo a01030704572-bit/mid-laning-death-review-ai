@@ -96,14 +96,21 @@ export function mapCoachingCategories(
     riskTagSet.has("FIGHT_TOWARD_ENEMY_JUNGLE") ||
     riskTagSet.has("POST_KILL_ESCAPE_RISK") ||
     riskTagSet.has("ALLY_JUNGLE_COVER_AVAILABLE") ||
-    riskTagSet.has("REASONABLE_COVERED_KILL_ATTEMPT")
+    riskTagSet.has("REASONABLE_COVERED_KILL_ATTEMPT") ||
+    riskTagSet.has("FOUGHT_TOWARD_ENEMY_COVER") ||
+    riskTagSet.has("FOUGHT_WITHOUT_ALLY_COVER") ||
+    riskTagSet.has("IGNORED_KNOWN_ENEMY_JUNGLE") ||
+    riskTagSet.has("FIGHT_DIRECTION_MISMATCH") ||
+    riskTagSet.has("MID_JUNGLE_COVER_MISREAD")
   ) {
     addCategory(categories, "JUNGLE_TRACKING");
   }
 
   if (
     riskTagSet.has("ENEMY_SUPPORT_MOVE_FIRST") ||
-    riskTagSet.has("SUPPORT_ROAM_WINDOW")
+    riskTagSet.has("SUPPORT_ROAM_WINDOW") ||
+    riskTagSet.has("ENEMY_SUPPORT_ROAM_WINDOW") ||
+    riskTagSet.has("ALLY_SUPPORT_CANNOT_MOVE")
   ) {
     addCategory(categories, "ROAMING_TEMPO");
   }
