@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DeathReviewForm from "@/components/DeathReviewForm";
 import ReviewResultCard from "@/components/ReviewResultCard";
+import RecentHabitPatternCard from "@/components/RecentHabitPatternCard";
 import { ReviewResult, RiskTag, ScenarioType } from "@/types/review";
+import type { ReviewSceneCompletion } from "@/types/history";
+import {
+  createManualReviewSceneRecord,
+  loadReviewSceneHistory,
+  saveReviewSceneRecord,
+} from "@/lib/reviewHistory";
+import { analyzeHabitPatterns } from "@/lib/habitPatternAnalyzer";
 
 export default function Home() {
   const [reviewData, setReviewData] = useState<{
@@ -11,6 +19,32 @@ export default function Home() {
     scenarioType?: ScenarioType;
     result: ReviewResult;
   } | null>(null);
+  const [habitAnalysis, setHabitAnalysis] = useState(() =>
+    analyzeHabitPatterns([])
+  );
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setHabitAnalysis(analyzeHabitPatterns(loadReviewSceneHistory()));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  function handleReviewResult(completion: ReviewSceneCompletion) {
+    setReviewData({
+      riskTags: completion.riskTags,
+      scenarioType: completion.scenarioType,
+      result: completion.result,
+    });
+
+    const savedHistory = saveReviewSceneRecord(
+      createManualReviewSceneRecord(completion)
+    );
+    if (savedHistory) {
+      setHabitAnalysis(analyzeHabitPatterns(savedHistory));
+    }
+  }
 
   return (
     <main className="min-h-screen bg-zinc-50 px-6 py-10 text-zinc-950">
@@ -34,23 +68,26 @@ export default function Home() {
         </header>
 
         <div className="grid gap-8 lg:grid-cols-2">
-          <DeathReviewForm onResult={setReviewData} />
+          <DeathReviewForm onResult={handleReviewResult} />
 
-          {reviewData ? (
-            <ReviewResultCard
-              riskTags={reviewData.riskTags}
-              scenarioType={reviewData.scenarioType}
-              result={reviewData.result}
-            />
-          ) : (
-            <div className="flex min-h-96 items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-zinc-500">
-              <div>
-                아직 코칭 리뷰 결과가 없습니다.
-                <br />
-                왼쪽 입력 폼을 작성하고 Coaching Review를 생성해보세요.
+          <div className="space-y-6">
+            {reviewData ? (
+              <ReviewResultCard
+                riskTags={reviewData.riskTags}
+                scenarioType={reviewData.scenarioType}
+                result={reviewData.result}
+              />
+            ) : (
+              <div className="flex min-h-96 items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-zinc-500">
+                <div>
+                  아직 코칭 리뷰 결과가 없습니다.
+                  <br />
+                  왼쪽 입력 폼을 작성하고 Coaching Review를 생성해보세요.
+                </div>
               </div>
-            </div>
-          )}
+            )}
+            <RecentHabitPatternCard analysis={habitAnalysis} />
+          </div>
         </div>
       </div>
     </main>

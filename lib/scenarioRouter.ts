@@ -42,6 +42,15 @@ export function determineScenarioType(
   return "SOLO_KILL_TRADE";
 }
 
+  if (
+    input.deathCause === "objective_prep_turn" ||
+    (input.objectiveType &&
+      input.objectiveType !== "unknown" &&
+      input.objectiveType !== "none")
+  ) {
+    return "OBJECTIVE_PREP_TURN";
+  }
+
   // 1. PRE_LANE_VISION — 가장 먼저 체크 (UNSAFE_WARDING보다 우선)
   if (
     input.gameTime === "pre_lane" ||

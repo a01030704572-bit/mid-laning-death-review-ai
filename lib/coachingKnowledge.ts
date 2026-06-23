@@ -167,6 +167,40 @@ function buildLevel3EKnowledgeBlock(
   return lines.join("\n");
 }
 
+function buildLevel3FKnowledgeBlock(
+  input?: DeathReviewInput,
+  riskTags: RiskTag[] = []
+): string {
+  const hasContext = Boolean(
+    input && (
+      input.deathCause === "objective_prep_turn" ||
+      (input.objectiveType &&
+        input.objectiveType !== "unknown" &&
+        input.objectiveType !== "none")
+    )
+  );
+
+  if (!hasContext) return "";
+
+  const tagSet = new Set<RiskTag>(riskTags);
+  const lines = [
+    "Category: LEVEL_3F_OBJECTIVE_PREP_TURN (Objective Preparation / Tradeoff Decision)",
+    "- Review the mid-lane preparation turn before the objective, not full teamfight execution.",
+    "- Compare mid priority, time remaining, preparation action, ally jungle intent, resources, and alternative gain.",
+    "- Do not blame the jungler or team for giving or losing the objective.",
+    "- If contesting was unrealistic, name one practical alternative gain from the input.",
+    "- Keep the next-game goal short and action-focused: push, reset, ward, move, or take the alternative gain.",
+  ];
+
+  if (tagSet.has("GOOD_OBJECTIVE_PREP_TURN")) {
+    lines.push(
+      "- GOOD_OBJECTIVE_PREP_TURN: treat this as positive preparation and explain why the turn was coherent."
+    );
+  }
+
+  return lines.join("\n");
+}
+
 export function buildCoachingKnowledgeBlock(
   categories: CoachingCategory[],
   input?: DeathReviewInput,
@@ -187,6 +221,9 @@ export function buildCoachingKnowledgeBlock(
     .join("\n\n");
 
   const level3EBlock = buildLevel3EKnowledgeBlock(input, riskTags);
+  const level3FBlock = buildLevel3FKnowledgeBlock(input, riskTags);
 
-  return [categoryBlock, level3EBlock].filter(Boolean).join("\n\n");
+  return [categoryBlock, level3EBlock, level3FBlock]
+    .filter(Boolean)
+    .join("\n\n");
 }

@@ -160,9 +160,92 @@ export type AllySupportStateBeforeFight =
   | "roaming_mid"
   | "dead_or_recalled";
 
+export type ObjectiveType =
+  | "void_grubs"
+  | "dragon"
+  | "rift_herald"
+  | "none"
+  | "unknown";
+
+export type TimeToObjective =
+  | "ninety_to_sixty"
+  | "sixty_to_thirty"
+  | "under_thirty"
+  | "already_spawned"
+  | "unknown";
+
+export type MidPriorityBeforeObjective =
+  | "have_prio"
+  | "no_prio"
+  | "contested"
+  | "unknown";
+
+export type ObjectivePrepAction =
+  | "pushed_mid"
+  | "recalled"
+  | "stayed_low_resource"
+  | "moved_first"
+  | "followed_late"
+  | "took_plate_or_cs"
+  | "placed_vision"
+  | "did_not_prepare"
+  | "unknown";
+
+export type AllyJungleObjectiveIntent =
+  | "wants_objective"
+  | "not_interested"
+  | "opposite_side"
+  | "dead_or_recalled"
+  | "unknown";
+
+export type ResourceBeforeObjective =
+  | "healthy"
+  | "low_hp"
+  | "low_mana_or_energy"
+  | "no_flash_or_key_spell"
+  | "low_resource"
+  | "unknown";
+
+export type AlternativeGainAvailable =
+  | "plate"
+  | "cs_wave"
+  | "opposite_vision"
+  | "roam"
+  | "reset"
+  | "none"
+  | "unknown";
+
+export type CurrentOutcome =
+  | "death"
+  | "solo_kill"
+  | "failed_kill_attempt"
+  | "survived_but_lost"
+  | "fight_advantage"
+  | "forced_enemy_recall"
+  | "gained_lane_priority"
+  | "lost_lane_priority"
+  | "plate_or_cs_gain"
+  | "plate_or_cs_loss"
+  | "unclear_recall_timing"
+  | "ganked_and_died"
+  | "escaped_gank_but_lost"
+  | "ally_jungle_coordination_mismatch"
+  | "fought_despite_known_enemy_jungle"
+  | "cover_misread"
+  | "died_while_warding"
+  | "vision_loss"
+  | "overextended_for_vision"
+  | "unclear_post_vision_decision"
+  | "objective_fight_loss"
+  | "secured_objective"
+  | "objective_trade_gain"
+  | "missed_objective_and_lane_gain"
+  | "unclear_objective_join_tradeoff"
+  | "unknown";
+
 export type DeathReviewInput = {
   playerTier: string;
-  currentOutcome: string;
+  currentOutcome: CurrentOutcome;
   myChampion: string;
   enemyChampion: string;
   gameTime: string;
@@ -203,6 +286,15 @@ export type DeathReviewInput = {
   fightDirection?: FightDirection;
   enemySupportStateBeforeFight?: EnemySupportStateBeforeFight;
   allySupportStateBeforeFight?: AllySupportStateBeforeFight;
+
+  // Level 3-F Objective Preparation / Tradeoff Decision
+  objectiveType: ObjectiveType;
+  timeToObjective: TimeToObjective;
+  midPriorityBeforeObjective: MidPriorityBeforeObjective;
+  objectivePrepAction: ObjectivePrepAction;
+  allyJungleObjectiveIntent: AllyJungleObjectiveIntent;
+  resourceBeforeObjective: ResourceBeforeObjective;
+  alternativeGainAvailable: AlternativeGainAvailable;
 
   enemyKeyCooldownsKnown: string;
   myKeyCooldownsKnown: string;
@@ -259,7 +351,15 @@ export type RiskTag =
   | "ENEMY_SUPPORT_ROAM_WINDOW"
   | "ALLY_SUPPORT_CANNOT_MOVE"
   | "FIGHT_DIRECTION_MISMATCH"
-  | "MID_JUNGLE_COVER_MISREAD";
+  | "MID_JUNGLE_COVER_MISREAD"
+  | "OBJECTIVE_FORCED_WITHOUT_MID_PRIO"
+  | "BAD_RECALL_BEFORE_OBJECTIVE"
+  | "STAYED_LOW_RESOURCE_BEFORE_OBJECTIVE"
+  | "JOINED_OBJECTIVE_WITH_BAD_WAVE"
+  | "IGNORED_ALLY_JUNGLE_INTENT"
+  | "OBJECTIVE_TRADEOFF_MISREAD"
+  | "MISSED_ALTERNATIVE_GAIN"
+  | "GOOD_OBJECTIVE_PREP_TURN";
 
 export type ScenarioType =
   | "PRE_LANE_VISION"
@@ -268,6 +368,7 @@ export type ScenarioType =
   | "RECALL_GREED"
   | "UNSAFE_WARDING"
   | "ADVANTAGE_CONVERSION"
+  | "OBJECTIVE_PREP_TURN"
   | "GENERAL_LANING_DEATH";
 
 export type RiskFactor = {

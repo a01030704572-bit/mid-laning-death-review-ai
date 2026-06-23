@@ -137,6 +137,24 @@ export function mapCoachingCategories(
     addCategory(categories, "RECALL_TEMPO");
   }
 
+  if (
+    riskTagSet.has("OBJECTIVE_FORCED_WITHOUT_MID_PRIO") ||
+    riskTagSet.has("JOINED_OBJECTIVE_WITH_BAD_WAVE") ||
+    riskTagSet.has("OBJECTIVE_TRADEOFF_MISREAD") ||
+    riskTagSet.has("MISSED_ALTERNATIVE_GAIN") ||
+    riskTagSet.has("GOOD_OBJECTIVE_PREP_TURN")
+  ) {
+    addCategory(categories, "WAVE_MANAGEMENT");
+    addCategory(categories, "ROAMING_TEMPO");
+  }
+
+  if (
+    riskTagSet.has("BAD_RECALL_BEFORE_OBJECTIVE") ||
+    riskTagSet.has("STAYED_LOW_RESOURCE_BEFORE_OBJECTIVE")
+  ) {
+    addCategory(categories, "RECALL_TEMPO");
+  }
+
   // Text-based categories
   if (
     textIncludesAny(combinedText, [

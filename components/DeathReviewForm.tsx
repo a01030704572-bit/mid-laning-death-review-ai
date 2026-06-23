@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { DeathReviewInput, ReviewResult, RiskTag, ScenarioType } from "@/types/review";
+import {
+  CurrentOutcome,
+  DeathReviewInput,
+  ReviewResult,
+  RiskTag,
+  ScenarioType,
+} from "@/types/review";
 import {
   laneStateDetailOptions,
   allyJunglePositionOptions,
@@ -23,14 +29,70 @@ import {
   enemySupportStateBeforeFightOptions,
   allySupportStateBeforeFightOptions,
 } from "@/lib/modules/vision/options";
+import {
+  objectiveTypeOptions,
+  timeToObjectiveOptions,
+  midPriorityBeforeObjectiveOptions,
+  objectivePrepActionOptions,
+  allyJungleObjectiveIntentOptions,
+  resourceBeforeObjectiveOptions,
+  alternativeGainAvailableOptions,
+} from "@/lib/modules/objective/options";
+import { OUTCOME_GROUPS } from "@/lib/outcomes";
+import { getVisibleScenarioValues } from "@/lib/scenarioOptionFilter";
+import type { ReviewSceneCompletion } from "@/types/history";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Props = {
-  onResult: (data: { riskTags: RiskTag[]; result: ReviewResult }) => void;
+  onResult: (data: ReviewSceneCompletion) => void;
 };
 
 type UserScenario = ScenarioType | "NOT_SURE";
+
+const ADVANTAGE_ESCAPE_OUTCOMES = new Set<CurrentOutcome>([
+  "fight_advantage",
+  "forced_enemy_recall",
+  "gained_lane_priority",
+  "plate_or_cs_gain",
+  "secured_objective",
+  "objective_trade_gain",
+]);
+
+const LOSING_ESCAPE_OUTCOMES = new Set<CurrentOutcome>([
+  "death",
+  "failed_kill_attempt",
+  "survived_but_lost",
+  "lost_lane_priority",
+  "plate_or_cs_loss",
+  "ganked_and_died",
+  "escaped_gank_but_lost",
+  "ally_jungle_coordination_mismatch",
+  "fought_despite_known_enemy_jungle",
+  "cover_misread",
+  "died_while_warding",
+  "vision_loss",
+  "overextended_for_vision",
+  "objective_fight_loss",
+  "missed_objective_and_lane_gain",
+]);
+
+function getEscapePlanLabel(
+  outcome: CurrentOutcome,
+  scenario: UserScenario | null
+) {
+  if (outcome === "solo_kill") return "킬 이후 탈출 계획";
+  if (
+    scenario === "ADVANTAGE_CONVERSION" ||
+    ADVANTAGE_ESCAPE_OUTCOMES.has(outcome)
+  ) {
+    return "이득 이후 탈출/전환 계획";
+  }
+  if (LOSING_ESCAPE_OUTCOMES.has(outcome)) {
+    return "교전 이후 이탈 계획";
+  }
+  return "이탈 계획";
+}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -62,6 +124,13 @@ const initialInput: DeathReviewInput = {
   fightDirectionRelativeToCover: "unknown",
   postKillEscapePlan: "unknown",
   supportRoamState: "not_relevant",
+  objectiveType: "unknown",
+  timeToObjective: "unknown",
+  midPriorityBeforeObjective: "unknown",
+  objectivePrepAction: "unknown",
+  allyJungleObjectiveIntent: "unknown",
+  resourceBeforeObjective: "unknown",
+  alternativeGainAvailable: "unknown",
   enemyKeyCooldownsKnown: "",
   myKeyCooldownsKnown: "",
   matchupNote: "",
@@ -100,21 +169,15 @@ const SCENARIO_OPTIONS: { value: UserScenario; label: string; sub: string }[] = 
     sub: "이득을 만들었는데 그 이후 판단이 애매한 상황",
   },
   {
+    value: "OBJECTIVE_PREP_TURN",
+    label: "오브젝트 준비 / 교환 판단",
+    sub: "용·유충·전령 전에 미드 웨이브와 합류 준비를 판단한 상황",
+  },
+  {
     value: "NOT_SURE",
     label: "잘 모르겠다",
     sub: "어떤 유형인지 판단이 어려운 상황",
   },
-];
-
-// Outcome options
-const OUTCOME_OPTIONS: [string, string][] = [
-  ["death", "죽었다"],
-  ["survived_but_lost", "살아남았지만 손해를 봤다"],
-  ["forced_enemy_recall", "상대를 집 보냈다"],
-  ["solo_kill", "솔킬을 땄다"],
-  ["gained_lane_priority", "라인 주도권을 얻었다"],
-  ["plate_or_cs_gain", "플레이트 / CS 이득을 봤다"],
-  ["unknown", "잘 모르겠다"],
 ];
 
 // survivalResources checkboxes
@@ -135,6 +198,7 @@ function getDefaultDeathCause(scenario: UserScenario): string {
     case "RECALL_GREED":       return "recall_greed";
     case "UNSAFE_WARDING":     return "warding_death";
     case "ADVANTAGE_CONVERSION": return "unknown";
+    case "OBJECTIVE_PREP_TURN": return "objective_prep_turn";
     default:                   return "unknown";
   }
 }
@@ -178,6 +242,15 @@ function getScenarioDefaults(scenario: UserScenario): Partial<DeathReviewInput> 
       return {
         gameTime: "before_14",
         laneState: "pushing",
+      };
+
+    case "OBJECTIVE_PREP_TURN":
+      return {
+        gameTime: "plate_objective",
+        laneState: "center",
+        beforeDeathAction: "objective_preparation",
+        visionState: "unknown",
+        enemyJungleLocation: "not_relevant",
       };
 
     default:
@@ -233,9 +306,19 @@ export default function DeathReviewForm({ onResult }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      const data = await res.json();
+      const data = (await res.json()) as {
+        error?: string;
+        riskTags: RiskTag[];
+        scenarioType: ScenarioType;
+        result: ReviewResult;
+      };
       if (!res.ok) throw new Error(data.error || "Review request failed.");
-      onResult(data);
+      onResult({
+        input,
+        riskTags: data.riskTags,
+        scenarioType: data.scenarioType ?? data.result.scenario_type,
+        result: data.result,
+      });
     } catch (error) {
       console.error(error);
       alert("리뷰 생성에 실패했습니다. API Key 또는 서버 로그를 확인해보세요.");
@@ -256,6 +339,16 @@ export default function DeathReviewForm({ onResult }: Props) {
         return ["enemyKeyCooldownsKnown", "myKeyCooldownsKnown"];
     }
   })();
+  const visibleScenarioValues = new Set(
+    getVisibleScenarioValues(input.currentOutcome)
+  );
+  const visibleScenarioOptions = SCENARIO_OPTIONS.filter(({ value }) =>
+    visibleScenarioValues.has(value)
+  );
+  const escapePlanLabel = getEscapePlanLabel(
+    input.currentOutcome,
+    userScenario
+  );
 
   // ── Step indicator
   const STEP_LABELS = ["기본 정보", "무슨 일이?", "상황 유형", "세부 내용"];
@@ -349,23 +442,33 @@ export default function DeathReviewForm({ onResult }: Props) {
               desc="상황의 결과를 선택하세요."
             />
 
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {OUTCOME_OPTIONS.map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    updateField("currentOutcome", value);
-                    setStep(3);
-                  }}
-                  className={`rounded-xl border p-3 text-left text-sm font-medium transition-colors
-                    ${input.currentOutcome === value
-                      ? "border-zinc-900 bg-zinc-950 text-white"
-                      : "border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-400"
-                    }`}
-                >
-                  {label}
-                </button>
+            <div className="space-y-5">
+              {OUTCOME_GROUPS.map((group) => (
+                <section key={group.label} className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    {group.label}
+                  </h3>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {group.options.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setUserScenario(null);
+                          updateField("currentOutcome", value);
+                          setStep(3);
+                        }}
+                        className={`rounded-xl border p-3 text-left text-sm font-medium transition-colors
+                          ${input.currentOutcome === value
+                            ? "border-zinc-900 bg-zinc-950 text-white"
+                            : "border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-400"
+                          }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
 
@@ -382,7 +485,7 @@ export default function DeathReviewForm({ onResult }: Props) {
             />
 
             <div className="space-y-2">
-              {SCENARIO_OPTIONS.map(({ value, label, sub }) => (
+              {visibleScenarioOptions.map(({ value, label, sub }) => (
                 <button
                   key={value}
                   type="button"
@@ -598,6 +701,58 @@ export default function DeathReviewForm({ onResult }: Props) {
               </>
             )}
 
+            {/* ── OBJECTIVE_PREP_TURN ── */}
+            {userScenario === "OBJECTIVE_PREP_TURN" && (
+              <>
+                <SelectField
+                  label="준비하려던 오브젝트"
+                  value={input.objectiveType}
+                  onChange={(v) => updateField("objectiveType", v as DeathReviewInput["objectiveType"])}
+                  options={objectiveTypeOptions}
+                />
+                <SelectField
+                  label="오브젝트까지 남은 시간"
+                  value={input.timeToObjective}
+                  onChange={(v) => updateField("timeToObjective", v as DeathReviewInput["timeToObjective"])}
+                  options={timeToObjectiveOptions}
+                />
+                <SelectField
+                  label="오브젝트 전 미드 주도권"
+                  value={input.midPriorityBeforeObjective}
+                  onChange={(v) => updateField("midPriorityBeforeObjective", v as DeathReviewInput["midPriorityBeforeObjective"])}
+                  options={midPriorityBeforeObjectiveOptions}
+                />
+                <SelectField
+                  label="내가 한 준비 행동"
+                  value={input.objectivePrepAction}
+                  onChange={(v) => updateField("objectivePrepAction", v as DeathReviewInput["objectivePrepAction"])}
+                  options={objectivePrepActionOptions}
+                />
+                <SelectField
+                  label="우리 정글의 오브젝트 의도"
+                  value={input.allyJungleObjectiveIntent}
+                  onChange={(v) => updateField("allyJungleObjectiveIntent", v as DeathReviewInput["allyJungleObjectiveIntent"])}
+                  options={allyJungleObjectiveIntentOptions}
+                />
+                <SelectField
+                  label="오브젝트 전 내 자원 상태"
+                  value={input.resourceBeforeObjective}
+                  onChange={(v) => updateField("resourceBeforeObjective", v as DeathReviewInput["resourceBeforeObjective"])}
+                  options={resourceBeforeObjectiveOptions}
+                />
+                <SelectField
+                  label="합류하지 않을 때 가능한 대체 이득"
+                  value={input.alternativeGainAvailable}
+                  onChange={(v) => updateField("alternativeGainAvailable", v as DeathReviewInput["alternativeGainAvailable"])}
+                  options={alternativeGainAvailableOptions}
+                />
+                <FreeDescriptionField
+                  value={input.freeDescription}
+                  onChange={(v) => updateField("freeDescription", v)}
+                />
+              </>
+            )}
+
             {/* ── NOT_SURE / GENERAL_LANING_DEATH ── */}
             {(userScenario === "NOT_SURE" || userScenario === "GENERAL_LANING_DEATH") && (
               <>
@@ -749,7 +904,7 @@ export default function DeathReviewForm({ onResult }: Props) {
                       options={fightDirectionRelativeToCoverOptions}
                     />
                     <SelectField
-                      label="킬 이후 탈출 계획"
+                      label={escapePlanLabel}
                       value={input.postKillEscapePlan}
                       onChange={(v) => updateField("postKillEscapePlan", v as DeathReviewInput["postKillEscapePlan"])}
                       options={postKillEscapePlanOptions}
@@ -763,7 +918,7 @@ export default function DeathReviewForm({ onResult }: Props) {
                   </div>
 
                   <SelectField
-                    label="킬 이후 탈출 계획"
+                    label={escapePlanLabel}
                     value={input.postKillEscapePlan}
                     onChange={(v) => updateField("postKillEscapePlan", v as DeathReviewInput["postKillEscapePlan"])}
                     options={postKillEscapePlanOptions}

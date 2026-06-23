@@ -13,6 +13,7 @@ const SCENARIO_LABELS: Record<ScenarioType, { label: string; color: string }> = 
   RECALL_GREED:         { label: "귀환 탐욕",         color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
   UNSAFE_WARDING:       { label: "위험 와딩",         color: "bg-blue-100 text-blue-800 border-blue-300" },
   ADVANTAGE_CONVERSION: { label: "이득 전환",         color: "bg-green-100 text-green-800 border-green-300" },
+  OBJECTIVE_PREP_TURN:  { label: "오브젝트 준비",     color: "bg-cyan-100 text-cyan-800 border-cyan-300" },
   GENERAL_LANING_DEATH: { label: "일반 라인전 사망",  color: "bg-zinc-100 text-zinc-700 border-zinc-300" },
 };
 

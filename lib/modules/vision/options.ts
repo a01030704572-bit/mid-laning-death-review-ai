@@ -146,7 +146,7 @@ export const supportRoamStateOptions: [string, string][] = [
 export const enemyJungleInfoBeforeFightOptions: [string, string][] = [
   ["unknown", "모르겠다"],
   ["not_seen_recently", "최근에 못 봤다"],
-  ["seen_same_side", "같은 쪽에서 봤다"],
+  ["seen_same_side", "내가 싸운 방향과 같은 쪽에서 봤다"],
   ["seen_opposite_side", "반대쪽에서 봤다"],
   ["seen_near_mid", "미드 근처에서 봤다"],
   ["dead_or_recalled", "죽었거나 귀환했다"],

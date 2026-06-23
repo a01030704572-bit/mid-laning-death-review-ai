@@ -1,7 +1,11 @@
 import { DeathReviewInput, RiskTag, ScenarioType } from "@/types/review";
 import { CoachingCategory } from "@/lib/coachingCategories";
+import { getOutcomeLabel } from "@/lib/outcomes";
 
-function getScenarioGuidance(scenarioType: ScenarioType): string {
+function getScenarioGuidance(
+  scenarioType: ScenarioType,
+  hasLevel3EFocus: boolean
+): string {
   switch (scenarioType) {
     case "PRE_LANE_VISION":
       return `
@@ -30,9 +34,13 @@ follow_up_questions는 1~2개만 작성하고, main_question과 겹치지 않게
 Scenario: SOLO_KILL_TRADE
 이 상황은 1:1 교전 또는 킬각 시도 중 발생한 사망입니다.
 main_question은 반드시 아래 중 하나에 집중하세요:
+${hasLevel3EFocus ? `- 교전 전에 상대 정글 위치를 알고 있었는가?
+- 싸움이 아군 커버가 아니라 상대 정글 커버 쪽으로 길어지지는 않았는가?
+- 아군 정글 커버와 킬 이후 탈출 경로가 실제로 있었는가?` : ""}
 - 교전 전에 상대의 핵심 스킬 쿨타임과 내 생존 자원을 확인했는가?
 - 레벨 6/점화/궁극기 타이밍이 유리한 상황이었는가?
 - 이 교전의 목적이 명확했는가?
+${hasLevel3EFocus ? "정글 위치, 교전 방향, 아군 커버, 탈출 경로 중 입력으로 확인되는 요소를 쿨타임 질문보다 우선하세요." : ""}
 follow_up_questions는 1~2개만 작성하고, main_question과 겹치지 않게 하세요.`;
 
     case "RECALL_GREED":
@@ -65,6 +73,17 @@ main_question은 반드시 아래 중 하나에 집중하세요:
 - 상대 정글 정보 없이 너무 깊게 들어가지는 않았는가?
 follow_up_questions는 1~2개만 작성하고, main_question과 겹치지 않게 하세요.`;
 
+    case "OBJECTIVE_PREP_TURN":
+      return `
+Scenario: OBJECTIVE_PREP_TURN
+이 상황은 오브젝트 전 30~90초 동안 미드가 준비한 한 턴을 복기하는 상황입니다.
+main_question은 반드시 아래 중 하나에 집중하세요:
+- 미드 주도권과 웨이브가 오브젝트 합류를 실제로 지원했는가?
+- 우리 정글이 오브젝트를 원했고, 내 자원도 합류 가능한 상태였는가?
+- 합류가 어렵다면 웨이브, 플레이트, 귀환, 반대편 시야 중 더 확실한 대체 이득이 있었는가?
+팀 전체의 5v5 조합이나 한타 실행을 분석하지 마세요.
+follow_up_questions는 1~2개만 작성하고, main_question과 겹치지 않게 하세요.`;
+
     case "GENERAL_LANING_DEATH":
     default:
       return `
@@ -83,7 +102,31 @@ export function buildReviewPrompt(
   coachingKnowledgeBlock: string,
   scenarioType: ScenarioType
 ) {
-  const scenarioGuidance = getScenarioGuidance(scenarioType);
+  const level3ETags = new Set<RiskTag>([
+    "FOUGHT_TOWARD_ENEMY_COVER",
+    "FOUGHT_WITHOUT_ALLY_COVER",
+    "IGNORED_KNOWN_ENEMY_JUNGLE",
+    "FIGHT_DIRECTION_MISMATCH",
+    "MID_JUNGLE_COVER_MISREAD",
+    "ENEMY_JUNGLER_NEARBY",
+    "NO_ALLY_COVER",
+    "FIGHT_TOWARD_ENEMY_JUNGLE",
+    "POST_KILL_ESCAPE_RISK",
+  ]);
+  const hasLevel3EFocus = riskTags.some((tag) => level3ETags.has(tag));
+  const hasLevel3EInput = Boolean(
+    input.enemyJungleInfoState !== "not_sure" ||
+    input.allyJungleCoverState !== "unknown" ||
+    input.fightDirectionRelativeToCover !== "unknown" ||
+    input.postKillEscapePlan !== "unknown" ||
+    input.enemyJungleInfoBeforeFight ||
+    input.allyJungleCoverBeforeFight ||
+    input.fightDirection
+  );
+  const scenarioGuidance = getScenarioGuidance(
+    scenarioType,
+    hasLevel3EFocus || hasLevel3EInput
+  );
 
   return `
 
@@ -93,6 +136,7 @@ Your job is NOT to give a definitive judgment.
 Your job is to help the player understand possible decision patterns, reflect on the situation, and identify the single most important question they should think about.
 
 Detected Scenario Type: ${scenarioType}
+Selected outcome meaning: ${getOutcomeLabel(input.currentOutcome)}
 
 ${scenarioGuidance}
 
@@ -225,6 +269,12 @@ If currentOutcome is "unknown":
 - Focus on replay-check questions and what information is needed to judge the situation.
 - sceneCheckpoints and uncertainInfo should be more important than direct advice.
 
+For newer outcome values not named above, use Selected outcome meaning as the authoritative user-facing meaning:
+- Outcomes described as an advantage should focus on how the gain was created and converted.
+- Outcomes described as a loss or death should focus on the risky decision, stop point, and available alternative.
+- Outcomes described as unclear should focus on the replay evidence needed to decide.
+- Never expose the raw currentOutcome enum value in Korean feedback.
+
 Tier handling:
 - Use the player's tier only to adjust coaching depth.
 - Do not claim statistical facts about that tier unless they are provided in the prompt.
@@ -348,6 +398,14 @@ Level 3-E tier-specific coaching depth:
 - For Master+: discuss expected value, tempo, wave crash, recall timing, cover direction, opportunity cost, and the next 30-90 seconds. Ask whether the kill created real tempo advantage or only forced a low-value 1-for-1, and whether dying after the kill lost wave, reset timing, river control, or objective setup.
 - Risk tags are tier-independent, but explanations, reflection questions, coverAndEscapeAnalysis, and next-game goals must be tier-aware.
 
+Level 3-F objective preparation / tradeoff decision:
+- Review only the mid laner's preparation turn before 드래곤, 공허 유충, or 협곡의 전령. Use these canonical Korean objective names in user-facing text. Do not analyze full 5v5 teamfight composition or execution.
+- Judge whether mid priority, preparation timing, ally jungle intent, and player resources made contesting realistic.
+- A lost objective is not automatically the mid laner's mistake. Treat the review as a hypothesis based on the provided facts.
+- If contesting was unrealistic, compare the stated alternative gain: wave, plate, reset, roam, or opposite-side vision.
+- GOOD_OBJECTIVE_PREP_TURN is positive context. Explain what preparation was sound instead of inventing a mistake.
+- For OBJECTIVE_TRADEOFF_MISREAD or MISSED_ALTERNATIVE_GAIN, explain the opportunity cost without blaming teammates.
+
 Output rules:
 - Return ONLY valid JSON.
 - Do not include markdown.
@@ -361,6 +419,10 @@ Output rules:
 - oneActionForNextGame should be written as a clear decision rule when possible.
 - Example style: "If A and B are true, do C instead of D."
 - Avoid vague goals like "be careful" or "check vision better."
+- next_laning_goal must be one short, action-first Korean sentence. Aim for 45 Korean characters or fewer.
+- Never copy raw input enum values into Korean user-facing text. Translate their meaning naturally.
+- Raw values such as seen_same_side, toward_enemy_jungle, opposite_side, no_prio, moved_first, and wants_objective must not appear in main_question, follow_up_questions, explanations, analyses, goals, checklists, or confidence notes.
+- Never write plate_objective, 플레이트_objective, void_grubs, voidgrubs, grubs, or 보이드 그럽. Use "플레이트를 노릴 수 있는 시간대" and "공허 유충" instead.
 
 - Be careful not to reverse matchupNote meaning. If the player says "my champion struggles before level 6", do not rewrite it as the enemy champion struggling.
 - In whatWentWell, praise the player's intention separately from the execution. For example, "정보를 얻으려는 의도는 좋았지만, 깊이와 타이밍은 위험했습니다."

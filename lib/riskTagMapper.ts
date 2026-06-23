@@ -13,7 +13,8 @@ export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
     enemyJungleInfoState === "seen_but_ignored";
   const hasAllyCover =
     input.allyJungleCoverState === "same_side_cover" ||
-    input.allyJungleCoverState === "near_mid";
+    input.allyJungleCoverState === "near_mid" ||
+    input.allyJungleCoverBeforeFight === "same_side_near_mid";
   const hasGoodPostKillEscape =
     input.postKillEscapePlan === "escape_through_ally_side" ||
     input.postKillEscapePlan === "clear_escape_route";
@@ -28,6 +29,24 @@ export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
   const knownEnemyJungleBeforeFight =
     explicitEnemyJungleInfo === "seen_same_side" ||
     explicitEnemyJungleInfo === "seen_near_mid";
+  const foughtTowardMapSide =
+    explicitFightDirection === "toward_top_side" ||
+    explicitFightDirection === "toward_bot_side";
+  const foughtTowardEnemyCover =
+    input.fightDirectionRelativeToCover === "toward_enemy_jungle" ||
+    explicitFightDirection === "toward_enemy_jungle" ||
+    (explicitEnemyJungleInfo === "seen_same_side" && foughtTowardMapSide);
+  const foughtTowardAllyCover =
+    input.fightDirectionRelativeToCover === "toward_ally_cover" ||
+    explicitFightDirection === "toward_ally_jungle";
+  const foughtWithoutAllyCover =
+    input.allyJungleCoverState === "opposite_side" ||
+    input.allyJungleCoverState === "too_far" ||
+    explicitAllyJungleCover === "opposite_side" ||
+    explicitAllyJungleCover === "dead_or_recalled" ||
+    explicitAllyJungleCover === "resetting";
+  const knownEnemyCoverNearby =
+    hasNearbyKnownThreat || knownEnemyJungleBeforeFight;
 
   // Pre-lane / level 1 vision or invade risk
   if (input.gameTime === "pre_lane" ||
@@ -65,7 +84,7 @@ export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
     tags.add("NO_ALLY_COVER");
   }
 
-  if (input.fightDirectionRelativeToCover === "toward_ally_cover") {
+  if (foughtTowardAllyCover) {
     tags.add("FIGHT_TOWARD_ALLY_COVER");
   }
 
@@ -102,30 +121,22 @@ export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
   if (
     hasNearbyKnownThreat &&
     hasAllyCover &&
-    input.fightDirectionRelativeToCover === "toward_ally_cover" &&
+    foughtTowardAllyCover &&
     hasGoodPostKillEscape
   ) {
     tags.add("REASONABLE_COVERED_KILL_ATTEMPT");
   }
 
-  if (
-    explicitFightDirection === "toward_enemy_jungle" &&
-    explicitEnemyJungleInfo &&
-    explicitEnemyJungleInfo !== "unknown" &&
-    explicitEnemyJungleInfo !== "dead_or_recalled"
-  ) {
+  if (foughtTowardEnemyCover && knownEnemyCoverNearby) {
     tags.add("FOUGHT_TOWARD_ENEMY_COVER");
   }
 
-  if (
-    explicitAllyJungleCover === "opposite_side" ||
-    explicitAllyJungleCover === "dead_or_recalled" ||
-    explicitAllyJungleCover === "resetting"
-  ) {
+  if (foughtWithoutAllyCover) {
     tags.add("FOUGHT_WITHOUT_ALLY_COVER");
   }
 
   if (
+    enemyJungleInfoState === "seen_but_ignored" ||
     explicitEnemyJungleInfo === "seen_same_side" ||
     explicitEnemyJungleInfo === "seen_near_mid"
   ) {
@@ -146,10 +157,7 @@ export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
     tags.add("ALLY_SUPPORT_CANNOT_MOVE");
   }
 
-  if (
-    explicitFightDirection === "toward_enemy_jungle" &&
-    explicitAllyJungleCover === "opposite_side"
-  ) {
+  if (foughtTowardEnemyCover && foughtWithoutAllyCover) {
     tags.add("FIGHT_DIRECTION_MISMATCH");
   }
 
@@ -365,6 +373,98 @@ export function generateRiskTags(input: DeathReviewInput): RiskTag[] {
     input.postPushIntent === "stay_for_cs"
   ) {
     tags.add("BOUNCE_BACK_GREED_WINDOW");
+  }
+
+  // Level 3-F: objective preparation from the mid-lane turn only.
+  const hasObjectiveContext =
+    input.deathCause === "objective_prep_turn" ||
+    Boolean(
+      input.objectiveType &&
+      input.objectiveType !== "unknown" &&
+      input.objectiveType !== "none"
+    );
+
+  if (hasObjectiveContext) {
+    const joinedObjective =
+      input.objectivePrepAction === "moved_first" ||
+      input.objectivePrepAction === "followed_late";
+    const allyJungleUnavailable =
+      input.allyJungleObjectiveIntent === "not_interested" ||
+      input.allyJungleObjectiveIntent === "opposite_side" ||
+      input.allyJungleObjectiveIntent === "dead_or_recalled";
+    const lowObjectiveResources =
+      input.resourceBeforeObjective === "low_hp" ||
+      input.resourceBeforeObjective === "low_mana_or_energy" ||
+      input.resourceBeforeObjective === "no_flash_or_key_spell" ||
+      input.resourceBeforeObjective === "low_resource";
+    const hasAlternativeGain =
+      input.alternativeGainAvailable !== "unknown" &&
+      input.alternativeGainAvailable !== "none";
+    const contestWasUnrealistic =
+      input.midPriorityBeforeObjective === "no_prio" ||
+      allyJungleUnavailable ||
+      lowObjectiveResources;
+
+    if (
+      input.midPriorityBeforeObjective === "no_prio" &&
+      input.objectivePrepAction === "moved_first"
+    ) {
+      tags.add("OBJECTIVE_FORCED_WITHOUT_MID_PRIO");
+    }
+
+    if (
+      input.objectivePrepAction === "recalled" &&
+      (input.timeToObjective === "under_thirty" ||
+        input.timeToObjective === "already_spawned")
+    ) {
+      tags.add("BAD_RECALL_BEFORE_OBJECTIVE");
+    }
+
+    if (
+      lowObjectiveResources &&
+      input.objectivePrepAction !== "recalled"
+    ) {
+      tags.add("STAYED_LOW_RESOURCE_BEFORE_OBJECTIVE");
+    }
+
+    if (
+      input.midPriorityBeforeObjective === "no_prio" &&
+      input.objectivePrepAction === "followed_late"
+    ) {
+      tags.add("JOINED_OBJECTIVE_WITH_BAD_WAVE");
+    }
+
+    if (allyJungleUnavailable && joinedObjective) {
+      tags.add("IGNORED_ALLY_JUNGLE_INTENT");
+    }
+
+    if (contestWasUnrealistic && joinedObjective && hasAlternativeGain) {
+      tags.add("OBJECTIVE_TRADEOFF_MISREAD");
+    }
+
+    if (
+      hasAlternativeGain &&
+      (input.objectivePrepAction === "did_not_prepare" ||
+        tags.has("OBJECTIVE_TRADEOFF_MISREAD"))
+    ) {
+      tags.add("MISSED_ALTERNATIVE_GAIN");
+    }
+
+    const madeUsefulPrepAction =
+      input.objectivePrepAction === "pushed_mid" ||
+      input.objectivePrepAction === "moved_first" ||
+      input.objectivePrepAction === "placed_vision";
+
+    if (
+      input.midPriorityBeforeObjective === "have_prio" &&
+      input.allyJungleObjectiveIntent === "wants_objective" &&
+      input.resourceBeforeObjective === "healthy" &&
+      madeUsefulPrepAction &&
+      input.timeToObjective !== "already_spawned" &&
+      input.timeToObjective !== "unknown"
+    ) {
+      tags.add("GOOD_OBJECTIVE_PREP_TURN");
+    }
   }
 
   return Array.from(tags);

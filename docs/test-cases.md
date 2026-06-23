@@ -705,3 +705,151 @@ These cases verify jungle/support cover, fight direction, and post-kill escape i
 
 - ENEMY_JUNGLER_UNKNOWN should appear
 - Feedback may say enemy jungle location was unknown
+
+## Test E6 - Canonical Enemy-Cover Tags from Legacy Fields
+
+### Input
+
+- scenario: SOLO_KILL_TRADE
+- enemyJungleInfoState: seen_near
+- allyJungleCoverState: opposite_side
+- fightDirectionRelativeToCover: toward_enemy_jungle
+
+### Expected
+
+- scenarioType: SOLO_KILL_TRADE
+- FOUGHT_TOWARD_ENEMY_COVER should appear
+- FOUGHT_WITHOUT_ALLY_COVER should appear
+- FIGHT_DIRECTION_MISMATCH should appear
+- Raw values such as `seen_near` or `toward_enemy_jungle` must not appear in Korean feedback
+
+## Test E7 - Canonical Enemy-Cover Tags from New Fields
+
+### Input
+
+- scenario: SOLO_KILL_TRADE
+- enemyJungleInfoBeforeFight: seen_same_side
+- allyJungleCoverBeforeFight: opposite_side
+- allyJungleSideDetail: top_side_jungle
+- fightDirection: toward_bot_side
+- allySupportStateBeforeFight: locked_bot
+- survivalResources: no_flash, low_hp
+
+### Expected
+
+- scenarioType: SOLO_KILL_TRADE
+- FOUGHT_TOWARD_ENEMY_COVER should appear
+- FOUGHT_WITHOUT_ALLY_COVER should appear
+- IGNORED_KNOWN_ENEMY_JUNGLE should appear
+- ALLY_SUPPORT_CANNOT_MOVE should appear
+- FIGHT_DIRECTION_MISMATCH should appear
+- MID_JUNGLE_COVER_MISREAD should appear
+- NO_FLASH_WINDOW should appear
+- LOW_HP_STAY should appear
+- Main or follow-up reflection should prioritize enemy jungle position, fight direction, ally cover, or escape route
+- Raw values such as `seen_same_side` must not appear in Korean feedback
+
+## Test E8 - Directional Cover Stays Conservative
+
+### Expected
+
+- `seen_opposite_side` + `toward_bot_side` must not add FOUGHT_TOWARD_ENEMY_COVER
+- `unknown` + `toward_bot_side` must not add FOUGHT_TOWARD_ENEMY_COVER
+- `seen_same_side` + `center_mid` must not add FOUGHT_TOWARD_ENEMY_COVER
+
+---
+
+# Level 3-F Objective Preparation Regression Tests
+
+These cases review only the mid-lane preparation turn before an objective. They must not expand into full 5v5 teamfight analysis.
+
+## Test F1 - Forced Without Mid Priority
+
+### Input
+
+- objectiveType: dragon
+- timeToObjective: under_thirty
+- midPriorityBeforeObjective: no_prio
+- objectivePrepAction: moved_first
+- allyJungleObjectiveIntent: wants_objective
+- resourceBeforeObjective: healthy
+- alternativeGainAvailable: cs_wave
+
+### Expected
+
+- scenarioType: OBJECTIVE_PREP_TURN
+- OBJECTIVE_FORCED_WITHOUT_MID_PRIO should appear
+- OBJECTIVE_TRADEOFF_MISREAD and MISSED_ALTERNATIVE_GAIN may appear
+- Feedback should compare contesting with collecting the mid wave
+
+## Test F2 - Late Recall
+
+### Input
+
+- objectiveType: void_grubs
+- timeToObjective: already_spawned
+- midPriorityBeforeObjective: contested
+- objectivePrepAction: recalled
+- allyJungleObjectiveIntent: wants_objective
+- resourceBeforeObjective: low_resource
+- alternativeGainAvailable: none
+
+### Expected
+
+- scenarioType: OBJECTIVE_PREP_TURN
+- BAD_RECALL_BEFORE_OBJECTIVE should appear
+- Feedback should review the earlier reset window, not blame the teamfight
+
+## Test F3 - Joined With Bad Wave and No Jungle Intent
+
+### Input
+
+- objectiveType: rift_herald
+- timeToObjective: under_thirty
+- midPriorityBeforeObjective: no_prio
+- objectivePrepAction: followed_late
+- allyJungleObjectiveIntent: opposite_side
+- resourceBeforeObjective: healthy
+- alternativeGainAvailable: plate
+
+### Expected
+
+- JOINED_OBJECTIVE_WITH_BAD_WAVE should appear
+- IGNORED_ALLY_JUNGLE_INTENT should appear
+- OBJECTIVE_TRADEOFF_MISREAD should appear
+- MISSED_ALTERNATIVE_GAIN should appear
+
+## Test F4 - Stayed With Low Resources
+
+### Input
+
+- objectiveType: dragon
+- timeToObjective: sixty_to_thirty
+- midPriorityBeforeObjective: contested
+- objectivePrepAction: stayed_low_resource
+- allyJungleObjectiveIntent: wants_objective
+- resourceBeforeObjective: low_mana_or_energy
+- alternativeGainAvailable: reset
+
+### Expected
+
+- STAYED_LOW_RESOURCE_BEFORE_OBJECTIVE should appear
+- Feedback should recommend an earlier reset timing
+
+## Test F5 - Good Preparation Turn
+
+### Input
+
+- objectiveType: dragon
+- timeToObjective: sixty_to_thirty
+- midPriorityBeforeObjective: have_prio
+- objectivePrepAction: pushed_mid
+- allyJungleObjectiveIntent: wants_objective
+- resourceBeforeObjective: healthy
+- alternativeGainAvailable: none
+
+### Expected
+
+- GOOD_OBJECTIVE_PREP_TURN should appear
+- Feedback should recognize the preparation as coherent
+- Feedback must remain limited to the mid-lane preparation turn
