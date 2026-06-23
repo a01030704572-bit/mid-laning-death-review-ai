@@ -30,15 +30,22 @@ function loadTypeScriptModule(relativePath) {
 const { analyzeHabitPatterns } = loadTypeScriptModule(
   "lib/habitPatternAnalyzer.ts"
 );
-const { createManualReviewSceneRecord } = loadTypeScriptModule(
+const {
+  clearReviewSceneHistory,
+  createReviewSceneRecord,
+  loadReviewSceneHistory,
+  saveReviewSceneRecord,
+} = loadTypeScriptModule(
   "lib/reviewHistory.ts"
 );
 
-function scene(id, day, riskTags) {
+function scene(id, day, riskTags, overrides = {}) {
   return {
     id,
     createdAt: `2026-06-${String(day).padStart(2, "0")}T12:00:00.000Z`,
     riskTags,
+    rawInputSnapshot: {},
+    ...overrides,
   };
 }
 
@@ -157,7 +164,7 @@ test("jungle-location goal uses natural Korean wording", () => {
 });
 
 test("new local habit records omit the full result snapshot", () => {
-  const record = createManualReviewSceneRecord({
+  const record = createReviewSceneRecord({
     input: {
       myChampion: "Akali",
       enemyChampion: "Ahri",
@@ -177,4 +184,100 @@ test("new local habit records omit the full result snapshot", () => {
   assert.equal("resultSnapshot" in record, false);
   assert.deepEqual(record.riskTags, ["LOW_HP_STAY"]);
   assert.equal(record.nextGameGoal, "안전하게 귀환하기");
+});
+
+test("good decisions stay in sample size but do not count negative habit tags", () => {
+  const analysis = analyzeHabitPatterns([
+    scene("good", 1, ["LOW_HP_STAY"], {
+      sceneOutcomeAssessment: "good_decision",
+    }),
+    scene("risky", 2, ["NO_FLASH_WINDOW"], {
+      sceneOutcomeAssessment: "risky_but_successful",
+    }),
+  ]);
+
+  assert.equal(analysis.recentSceneCount, 2);
+  assert.equal(
+    analysis.topRiskTags.some(({ tag }) => tag === "LOW_HP_STAY"),
+    false
+  );
+  assert.equal(analysis.topRiskTags[0].tag, "NO_FLASH_WINDOW");
+});
+
+test("top-side mid roam does not turn unavailable ally support into a habit", () => {
+  const analysis = analyzeHabitPatterns([
+    scene("1", 1, ["ALLY_SUPPORT_CANNOT_MOVE", "NO_FLASH_WINDOW"], {
+      routedScenario: "MID_ROAM_FIGHT_JOIN",
+      rawInputSnapshot: { movementSide: "top_side" },
+    }),
+    scene("2", 2, ["ALLY_SUPPORT_CANNOT_MOVE", "NO_FLASH_WINDOW"], {
+      routedScenario: "MID_ROAM_FIGHT_JOIN",
+      rawInputSnapshot: { fightDirection: "toward_top_side" },
+    }),
+  ]);
+
+  assert.equal(
+    analysis.topRiskTags.some(({ tag }) => tag === "ALLY_SUPPORT_CANNOT_MOVE"),
+    false
+  );
+  assert.equal(analysis.primaryHabitFocus.tag, "NO_FLASH_WINDOW");
+});
+
+test("video-review metadata is normalized and legacy video records remain readable", () => {
+  const values = new Map();
+  global.window = {
+    localStorage: {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, value),
+      removeItem: (key) => values.delete(key),
+    },
+  };
+
+  const record = createReviewSceneRecord({
+    input: {
+      myChampion: "Akali",
+      enemyChampion: "Ahri",
+      gameTime: "post_level6",
+      playerTier: "gold",
+      currentOutcome: "fight_advantage",
+      sceneOutcomeAssessment: "risky_but_successful",
+      survivalResources: [],
+    },
+    riskTags: ["NO_FLASH_WINDOW"],
+    scenarioType: "MID_ROAM_FIGHT_JOIN",
+    result: { possible_risk_factors: [], next_laning_goal: "웨이브부터 확인하기" },
+    sourceMetadata: {
+      sourceType: "video_review",
+      sourceLabel: "  6월 23일 솔랭  ",
+      sceneTime: " 08:35 ",
+      sceneIndex: "2",
+    },
+  });
+
+  assert.equal(record.sourceType, "video_review");
+  assert.equal(record.sourceLabel, "6월 23일 솔랭");
+  assert.equal(record.sceneTime, "08:35");
+  assert.equal(record.sceneIndex, 2);
+  assert.match(record.reviewSessionId, /^video-review:/);
+  assert.equal(record.sceneOutcomeAssessment, "risky_but_successful");
+
+  saveReviewSceneRecord(record);
+  values.set(
+    "mid-laning-review-history-v1",
+    JSON.stringify([
+      {
+        ...record,
+        id: "legacy",
+        sourceType: "video",
+        resultSnapshot: { large: true },
+      },
+    ])
+  );
+  const loaded = loadReviewSceneHistory();
+  assert.equal(loaded[0].sourceType, "video_review");
+  assert.equal("resultSnapshot" in loaded[0], false);
+
+  assert.equal(clearReviewSceneHistory(), true);
+  assert.equal(values.has("mid-laning-review-history-v1"), false);
+  delete global.window;
 });

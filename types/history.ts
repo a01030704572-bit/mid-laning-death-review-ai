@@ -3,16 +3,26 @@ import type {
   DeathReviewInput,
   ReviewResult,
   RiskTag,
+  SceneOutcomeAssessment,
   ScenarioType,
 } from "@/types/review";
 
-export type ReviewSceneSourceType = "manual" | "video";
+export type ReviewSceneSourceType = "manual" | "video_review";
+
+export type ReviewSceneMetadataInput = {
+  sourceType: ReviewSceneSourceType;
+  sourceLabel: string;
+  sceneTime: string;
+  sceneIndex: string;
+};
 
 export type ReviewSceneRecord = {
   id: string;
   createdAt: string;
   sourceType: ReviewSceneSourceType;
   sourceId?: string;
+  sourceLabel?: string;
+  reviewSessionId?: string;
   sceneIndex?: number;
   sceneTime?: string;
   champion: string;
@@ -20,6 +30,7 @@ export type ReviewSceneRecord = {
   gameTime: string;
   playerTier: string;
   currentOutcome: CurrentOutcome;
+  sceneOutcomeAssessment?: SceneOutcomeAssessment;
   routedScenario: ScenarioType;
   riskTags: RiskTag[];
   primaryMistakeSummary?: string;
@@ -32,6 +43,7 @@ export type ReviewSceneCompletion = {
   riskTags: RiskTag[];
   scenarioType: ScenarioType;
   result: ReviewResult;
+  sourceMetadata?: ReviewSceneMetadataInput;
 };
 
 export type HabitPatternLevel =

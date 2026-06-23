@@ -10,6 +10,7 @@ const ALL_SCENARIOS: FormScenario[] = [
   "UNSAFE_WARDING",
   "ADVANTAGE_CONVERSION",
   "OBJECTIVE_PREP_TURN",
+  "MID_ROAM_FIGHT_JOIN",
   "NOT_SURE",
 ];
 
@@ -52,6 +53,7 @@ export function getVisibleScenarioValues(
   if (OBJECTIVE_OUTCOMES.has(outcome)) {
     return [
       "OBJECTIVE_PREP_TURN",
+      "MID_ROAM_FIGHT_JOIN",
       "ADVANTAGE_CONVERSION",
       "RECALL_GREED",
       "NOT_SURE",
@@ -70,6 +72,7 @@ export function getVisibleScenarioValues(
   if (JUNGLE_OUTCOMES.has(outcome)) {
     return [
       "GANKED_WHILE_PUSHING",
+      "MID_ROAM_FIGHT_JOIN",
       "SOLO_KILL_TRADE",
       "UNSAFE_WARDING",
       "ADVANTAGE_CONVERSION",
@@ -80,6 +83,7 @@ export function getVisibleScenarioValues(
   if (LANE_OUTCOMES.has(outcome)) {
     return [
       "ADVANTAGE_CONVERSION",
+      "MID_ROAM_FIGHT_JOIN",
       "RECALL_GREED",
       "GANKED_WHILE_PUSHING",
       "SOLO_KILL_TRADE",
@@ -90,6 +94,7 @@ export function getVisibleScenarioValues(
   if (outcome === "death") {
     return [
       "SOLO_KILL_TRADE",
+      "MID_ROAM_FIGHT_JOIN",
       "GANKED_WHILE_PUSHING",
       "RECALL_GREED",
       "UNSAFE_WARDING",
@@ -99,16 +104,27 @@ export function getVisibleScenarioValues(
   }
 
   if (outcome === "solo_kill" || outcome === "fight_advantage") {
-    return ["SOLO_KILL_TRADE", "ADVANTAGE_CONVERSION", "NOT_SURE"];
+    return [
+      "SOLO_KILL_TRADE",
+      "ADVANTAGE_CONVERSION",
+      "MID_ROAM_FIGHT_JOIN",
+      "NOT_SURE",
+    ];
   }
 
   if (outcome === "failed_kill_attempt") {
-    return ["SOLO_KILL_TRADE", "GANKED_WHILE_PUSHING", "NOT_SURE"];
+    return [
+      "SOLO_KILL_TRADE",
+      "MID_ROAM_FIGHT_JOIN",
+      "GANKED_WHILE_PUSHING",
+      "NOT_SURE",
+    ];
   }
 
   return [
     "SOLO_KILL_TRADE",
     "GANKED_WHILE_PUSHING",
+    "MID_ROAM_FIGHT_JOIN",
     "RECALL_GREED",
     "ADVANTAGE_CONVERSION",
     "NOT_SURE",

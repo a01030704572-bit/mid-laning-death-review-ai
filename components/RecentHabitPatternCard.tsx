@@ -2,9 +2,13 @@ import type { HabitPatternAnalysis } from "@/types/history";
 
 type Props = {
   analysis: HabitPatternAnalysis;
+  onResetHistory: () => void;
 };
 
-export default function RecentHabitPatternCard({ analysis }: Props) {
+export default function RecentHabitPatternCard({
+  analysis,
+  onResetHistory,
+}: Props) {
   const {
     recentSceneCount,
     repeatedPatterns,
@@ -15,15 +19,26 @@ export default function RecentHabitPatternCard({ analysis }: Props) {
 
   return (
     <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <div>
-        <h2 className="text-lg font-bold text-zinc-950">
-          최근 복기 장면 패턴 분석
-        </h2>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-zinc-950">
+            최근 복기 장면 패턴 분석
+          </h2>
         <p className="mt-1 text-sm text-zinc-500">
           {recentSceneCount >= 5
             ? "최근 5개 복기 장면 기준"
             : sampleSizeWarning}
         </p>
+        </div>
+        {recentSceneCount > 0 && (
+          <button
+            type="button"
+            onClick={onResetHistory}
+            className="shrink-0 text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline"
+          >
+            복기 기록 초기화
+          </button>
+        )}
       </div>
 
       {recentSceneCount === 0 ? null : (

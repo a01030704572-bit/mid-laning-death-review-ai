@@ -42,6 +42,10 @@ export function determineScenarioType(
   return "SOLO_KILL_TRADE";
 }
 
+  if (input.deathCause === "mid_roam_fight_join") {
+    return "MID_ROAM_FIGHT_JOIN";
+  }
+
   if (
     input.deathCause === "objective_prep_turn" ||
     (input.objectiveType &&

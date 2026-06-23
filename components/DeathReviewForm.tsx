@@ -6,6 +6,7 @@ import {
   DeathReviewInput,
   ReviewResult,
   RiskTag,
+  SceneOutcomeAssessment,
   ScenarioType,
 } from "@/types/review";
 import {
@@ -40,7 +41,10 @@ import {
 } from "@/lib/modules/objective/options";
 import { OUTCOME_GROUPS } from "@/lib/outcomes";
 import { getVisibleScenarioValues } from "@/lib/scenarioOptionFilter";
-import type { ReviewSceneCompletion } from "@/types/history";
+import type {
+  ReviewSceneCompletion,
+  ReviewSceneMetadataInput,
+} from "@/types/history";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -99,6 +103,7 @@ function getEscapePlanLabel(
 const initialInput: DeathReviewInput = {
   playerTier: "gold",
   currentOutcome: "death",
+  sceneOutcomeAssessment: "unclear",
   myChampion: "",
   enemyChampion: "",
   gameTime: "pre_lane",
@@ -134,6 +139,22 @@ const initialInput: DeathReviewInput = {
   enemyKeyCooldownsKnown: "",
   myKeyCooldownsKnown: "",
   matchupNote: "",
+};
+
+const SCENE_OUTCOME_ASSESSMENT_OPTIONS: [SceneOutcomeAssessment, string][] = [
+  ["good_decision", "좋은 판단이었다"],
+  ["risky_but_successful", "결과는 좋았지만 위험했다"],
+  ["questionable", "판단이 아쉬웠다"],
+  ["loss", "손해로 이어졌다"],
+  ["death", "죽음으로 이어졌다"],
+  ["unclear", "아직 판단하기 어렵다"],
+];
+
+const initialSourceMetadata: ReviewSceneMetadataInput = {
+  sourceType: "manual",
+  sourceLabel: "",
+  sceneTime: "",
+  sceneIndex: "",
 };
 
 // Step 3: scenario options
@@ -174,6 +195,11 @@ const SCENARIO_OPTIONS: { value: UserScenario; label: string; sub: string }[] = 
     sub: "용·유충·전령 전에 미드 웨이브와 합류 준비를 판단한 상황",
   },
   {
+    value: "MID_ROAM_FIGHT_JOIN",
+    label: "미드 로밍 / 교전 합류",
+    sub: "미드 웨이브를 떠나 상단·하단·정글 교전에 합류한 상황",
+  },
+  {
     value: "NOT_SURE",
     label: "잘 모르겠다",
     sub: "어떤 유형인지 판단이 어려운 상황",
@@ -199,6 +225,7 @@ function getDefaultDeathCause(scenario: UserScenario): string {
     case "UNSAFE_WARDING":     return "warding_death";
     case "ADVANTAGE_CONVERSION": return "unknown";
     case "OBJECTIVE_PREP_TURN": return "objective_prep_turn";
+    case "MID_ROAM_FIGHT_JOIN": return "mid_roam_fight_join";
     default:                   return "unknown";
   }
 }
@@ -253,6 +280,18 @@ function getScenarioDefaults(scenario: UserScenario): Partial<DeathReviewInput> 
         enemyJungleLocation: "not_relevant",
       };
 
+    case "MID_ROAM_FIGHT_JOIN":
+      return {
+        gameTime: "post_level6",
+        laneState: "center",
+        beforeDeathAction: "roam_or_join",
+        postPushIntent: "roam",
+        visionState: "unknown",
+        enemyJungleLocation: "not_relevant",
+        objectiveType: "unknown",
+        timeToObjective: "unknown",
+      };
+
     default:
       return {};
   }
@@ -264,6 +303,9 @@ export default function DeathReviewForm({ onResult }: Props) {
   const [userScenario, setUserScenario] = useState<UserScenario | null>(null);
   const [input, setInput] = useState<DeathReviewInput>(initialInput);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showSourceDetails, setShowSourceDetails] = useState(false);
+  const [sourceMetadata, setSourceMetadata] =
+    useState<ReviewSceneMetadataInput>(initialSourceMetadata);
   const [loading, setLoading] = useState(false);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -318,6 +360,7 @@ export default function DeathReviewForm({ onResult }: Props) {
         riskTags: data.riskTags,
         scenarioType: data.scenarioType ?? data.result.scenario_type,
         result: data.result,
+        sourceMetadata,
       });
     } catch (error) {
       console.error(error);
@@ -426,6 +469,70 @@ export default function DeathReviewForm({ onResult }: Props) {
               ]}
             />
 
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50">
+              <button
+                type="button"
+                onClick={() => setShowSourceDetails((prev) => !prev)}
+                className="flex w-full items-center justify-between p-3 text-left"
+              >
+                <span className="text-sm font-medium text-zinc-800">
+                  복기 출처 / 세션 정보 <span className="text-xs font-normal text-zinc-400">(선택)</span>
+                </span>
+                <span className="text-xs text-zinc-400">
+                  {showSourceDetails ? "접기 ▲" : "펼치기 ▼"}
+                </span>
+              </button>
+
+              {showSourceDetails && (
+                <div className="space-y-4 border-t border-zinc-200 p-3">
+                  <SelectField
+                    label="복기 출처"
+                    value={sourceMetadata.sourceType}
+                    onChange={(value) =>
+                      setSourceMetadata((prev) => ({
+                        ...prev,
+                        sourceType: value as ReviewSceneMetadataInput["sourceType"],
+                      }))
+                    }
+                    options={[
+                      ["manual", "직접 입력"],
+                      ["video_review", "영상을 보며 직접 복기"],
+                    ]}
+                  />
+
+                  {sourceMetadata.sourceType === "video_review" && (
+                    <>
+                      <TextInputField
+                        label="영상 / 복기 세션 이름"
+                        value={sourceMetadata.sourceLabel}
+                        onChange={(sourceLabel) =>
+                          setSourceMetadata((prev) => ({ ...prev, sourceLabel }))
+                        }
+                        placeholder="예: 6월 23일 솔랭 복기"
+                      />
+                      <TextInputField
+                        label="장면 시간"
+                        value={sourceMetadata.sceneTime}
+                        onChange={(sceneTime) =>
+                          setSourceMetadata((prev) => ({ ...prev, sceneTime }))
+                        }
+                        placeholder="예: 08:35"
+                      />
+                      <TextInputField
+                        label="장면 번호"
+                        value={sourceMetadata.sceneIndex}
+                        onChange={(sceneIndex) =>
+                          setSourceMetadata((prev) => ({ ...prev, sceneIndex }))
+                        }
+                        placeholder="예: 2"
+                        inputMode="numeric"
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
             <NavButtons
               onNext={() => setStep(2)}
               nextDisabled={!input.myChampion.trim() || !input.enemyChampion.trim()}
@@ -508,6 +615,18 @@ export default function DeathReviewForm({ onResult }: Props) {
             <StepHeading
               title={SCENARIO_OPTIONS.find((s) => s.value === userScenario)?.label ?? "세부 내용"}
               desc="해당 상황의 세부 정보를 입력하세요. 모르는 항목은 건너뛰어도 됩니다."
+            />
+
+            <SelectField
+              label="장면 판단 결과"
+              value={input.sceneOutcomeAssessment ?? "unclear"}
+              onChange={(value) =>
+                updateField(
+                  "sceneOutcomeAssessment",
+                  value as SceneOutcomeAssessment
+                )
+              }
+              options={SCENE_OUTCOME_ASSESSMENT_OPTIONS}
             />
 
             {/* ── PRE_LANE_VISION ── */}
@@ -749,6 +868,38 @@ export default function DeathReviewForm({ onResult }: Props) {
                 <FreeDescriptionField
                   value={input.freeDescription}
                   onChange={(v) => updateField("freeDescription", v)}
+                />
+              </>
+            )}
+
+            {/* ── MID_ROAM_FIGHT_JOIN ── */}
+            {userScenario === "MID_ROAM_FIGHT_JOIN" && (
+              <>
+                <SelectField
+                  label="합류 전 미드 웨이브 상태"
+                  value={input.laneStateDetail}
+                  onChange={(value) =>
+                    updateField(
+                      "laneStateDetail",
+                      value as DeathReviewInput["laneStateDetail"]
+                    )
+                  }
+                  options={laneStateDetailOptions}
+                />
+                <SelectField
+                  label="상대 미드 상태"
+                  value={input.enemyMidState}
+                  onChange={(value) =>
+                    updateField(
+                      "enemyMidState",
+                      value as DeathReviewInput["enemyMidState"]
+                    )
+                  }
+                  options={enemyMidStateOptions}
+                />
+                <FreeDescriptionField
+                  value={input.freeDescription}
+                  onChange={(value) => updateField("freeDescription", value)}
                 />
               </>
             )}
@@ -1124,6 +1275,33 @@ function FreeDescriptionField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="상황 전후 10~20초를 간단히 적어주세요. 자세할수록 더 정확한 피드백이 나옵니다."
+      />
+    </div>
+  );
+}
+
+function TextInputField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  inputMode,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  inputMode?: "numeric";
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-zinc-800">{label}</label>
+      <input
+        className="mt-1 w-full rounded-lg border border-zinc-300 p-2 text-sm"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        inputMode={inputMode}
       />
     </div>
   );

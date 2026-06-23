@@ -20,6 +20,7 @@ const SCENARIO_LABELS: Record<ScenarioType, { label: string; color: string }> = 
   UNSAFE_WARDING:       { label: "위험 와딩",         color: "bg-blue-100 text-blue-800 border-blue-300" },
   ADVANTAGE_CONVERSION: { label: "이득 전환",         color: "bg-green-100 text-green-800 border-green-300" },
   OBJECTIVE_PREP_TURN:  { label: "오브젝트 준비",     color: "bg-cyan-100 text-cyan-800 border-cyan-300" },
+  MID_ROAM_FIGHT_JOIN:  { label: "미드 로밍/교전 합류", color: "bg-indigo-100 text-indigo-800 border-indigo-300" },
   GENERAL_LANING_DEATH: { label: "일반 라인전 사망",  color: "bg-zinc-100 text-zinc-700 border-zinc-300" },
 };
 
@@ -138,6 +139,18 @@ export default function ReviewResultCard({ riskTags, scenarioType, result }: Pro
             ))}
           </ul>
         </div>
+      )}
+
+      {result.goodDecisionSummary && (
+        <Section title="잘한 판단">
+          <p>{sanitizeUserFacingText(result.goodDecisionSummary)}</p>
+        </Section>
+      )}
+
+      {result.improvementFocus && (
+        <Section title="추가로 조심할 변수">
+          <p>{sanitizeUserFacingText(result.improvementFocus)}</p>
+        </Section>
       )}
 
       {displayRiskFactors && displayRiskFactors.length > 0 && (

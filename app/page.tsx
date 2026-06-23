@@ -7,7 +7,8 @@ import RecentHabitPatternCard from "@/components/RecentHabitPatternCard";
 import { ReviewResult, RiskTag, ScenarioType } from "@/types/review";
 import type { ReviewSceneCompletion } from "@/types/history";
 import {
-  createManualReviewSceneRecord,
+  clearReviewSceneHistory,
+  createReviewSceneRecord,
   loadReviewSceneHistory,
   saveReviewSceneRecord,
 } from "@/lib/reviewHistory";
@@ -39,10 +40,17 @@ export default function Home() {
     });
 
     const savedHistory = saveReviewSceneRecord(
-      createManualReviewSceneRecord(completion)
+      createReviewSceneRecord(completion)
     );
     if (savedHistory) {
       setHabitAnalysis(analyzeHabitPatterns(savedHistory));
+    }
+  }
+
+  function handleResetHistory() {
+    if (!window.confirm("저장된 복기 장면 기록을 초기화할까요?")) return;
+    if (clearReviewSceneHistory()) {
+      setHabitAnalysis(analyzeHabitPatterns([]));
     }
   }
 
@@ -86,7 +94,10 @@ export default function Home() {
                 </div>
               </div>
             )}
-            <RecentHabitPatternCard analysis={habitAnalysis} />
+            <RecentHabitPatternCard
+              analysis={habitAnalysis}
+              onResetHistory={handleResetHistory}
+            />
           </div>
         </div>
       </div>

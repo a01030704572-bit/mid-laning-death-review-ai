@@ -84,6 +84,19 @@ main_question은 반드시 아래 중 하나에 집중하세요:
 팀 전체의 5v5 조합이나 한타 실행을 분석하지 마세요.
 follow_up_questions는 1~2개만 작성하고, main_question과 겹치지 않게 하세요.`;
 
+    case "MID_ROAM_FIGHT_JOIN":
+      return `
+Scenario: MID_ROAM_FIGHT_JOIN
+이 상황은 미드 웨이브를 떠나 상단·하단·정글 교전에 합류한 판단을 복기하는 상황입니다.
+main_question은 반드시 아래 중 하나에 집중하세요:
+- 이동 전에 미드 웨이브를 처리해 합류 비용을 줄였는가?
+- 상대 미드가 따라올 수 있는 상태였고, 내가 먼저 도착할 근거가 있었는가?
+- 합류로 기대한 이득이 포기한 웨이브·경험치·귀환 타이밍보다 컸는가?
+- 교전이 끝난 뒤 미드로 복귀하거나 다른 이득으로 전환할 계획이 있었는가?
+상단 교전에서는 아군 서폿의 이동 가능 여부를 핵심 실수로 다루지 마세요. 바텀 합류이거나 서폿 개입을 실제로 기대한 상황에서만 보조 변수로 사용하세요.
+팀 전체의 5v5 한타나 조합을 분석하지 마세요.
+follow_up_questions는 1~2개만 작성하고, main_question과 겹치지 않게 하세요.`;
+
     case "GENERAL_LANING_DEATH":
     default:
       return `
@@ -127,6 +140,14 @@ export function buildReviewPrompt(
     scenarioType,
     hasLevel3EFocus || hasLevel3EInput
   );
+  const isDeathScene =
+    input.sceneOutcomeAssessment === "death" ||
+    input.currentOutcome === "death" ||
+    input.currentOutcome === "ganked_and_died" ||
+    input.currentOutcome === "died_while_warding";
+  const confidenceWordingGuidance = isDeathScene
+    ? "This is a death scene. Death-specific wording is allowed only when it matches the provided facts."
+    : 'This is not a death scene. In confidence_note, never use "death cause", "사망 원인", or other death-specific wording. Use neutral wording such as "장면 판단", "판단 근거", "이득과 손해의 원인", or "추가 확인이 필요한 정보".';
 
   return `
 
@@ -137,6 +158,8 @@ Your job is to help the player understand possible decision patterns, reflect on
 
 Detected Scenario Type: ${scenarioType}
 Selected outcome meaning: ${getOutcomeLabel(input.currentOutcome)}
+Player's scene outcome assessment: ${input.sceneOutcomeAssessment ?? "unclear"}
+Confidence-note wording: ${confidenceWordingGuidance}
 
 ${scenarioGuidance}
 
@@ -185,7 +208,8 @@ Most important product principle:
 Level 3-C advanced context handling:
 - The player may provide advanced context such as teamSide, movementSide, wardLocationDetail, enemyMidState, allyJungleSideDetail, enemyKeyCooldownsKnown, myKeyCooldownsKnown, and matchupNote.
 - Treat these advanced fields as high-priority context when they are not "unknown" or empty.
-- Do not ignore matchupNote. If the player provides matchupNote, use it as the main source for matchup-specific reasoning.
+- Treat matchupNote as the player's matchup hypothesis, not as verified game knowledge or the main source of truth.
+- When matchupNote is provided, describe it as the player's read and use it only as supporting context that should be checked against replay evidence.
 - Do not invent champion abilities, mobility spells, crowd control, or cooldown states that were not provided.
 - If champion-specific skill information is missing, avoid detailed skill claims and instead say what should be checked in replay.
 - If enemyKeyCooldownsKnown or myKeyCooldownsKnown is provided, use those cooldown notes before making any skill-based comment.
@@ -229,6 +253,13 @@ Level 3-C decision context:
 
 Outcome-aware coaching:
 Use currentOutcome to decide the main coaching focus.
+
+Use sceneOutcomeAssessment to calibrate the tone without overriding the factual outcome:
+- good_decision: clearly state what was sound in goodDecisionSummary. Do not turn generated risk tags into the main mistake; put any remaining uncertainty in improvementFocus.
+- risky_but_successful: acknowledge what worked, but distinguish the good result from whether the decision is safely repeatable.
+- questionable, loss, or death: focus on the stop point and alternative while keeping conclusions cautious.
+- unclear or missing: avoid strong judgment and state what replay evidence is needed.
+- goodDecisionSummary and improvementFocus must use natural Korean and must never expose the raw assessment value.
 
 The review must always start from "why".
 However, the meaning of "why" changes depending on the outcome.
@@ -324,7 +355,7 @@ Matchup and turn interpretation:
 - Do not assume the player had lane priority only because laneState says "pushing" or laneStateDetail says "crashed_into_enemy_tower."
 - A pushed wave does not always mean the player had the real turn to move.
 - Consider matchup pressure, level timing, key cooldowns, enemy mid state, and jungle cover.
-- If the matchupNote says the player's champion normally lacks priority before a certain level or item timing, respect that note.
+- If matchupNote says the player's champion normally lacks priority before a certain level or item timing, treat that as a hypothesis to verify against the actual wave, spacing, and cooldown state.
 - For melee vs ranged matchups, be careful about saying the melee champion had control early unless the input clearly supports it.
 - When relevant, explain the difference between:
   1. wave priority,
@@ -346,6 +377,10 @@ Input conflict handling:
 - Mention the conflict in uncertainInfo or confidenceNote.
 - For example, if survivalResources says "no Flash" but freeDescription says Flash was available, treat Flash status as uncertain.
 - Do not build the main recommendation on a conflicting detail unless the freeDescription clearly explains it.
+- Preserve ally/enemy ownership exactly as written in freeDescription. Never flip "아군/우리/ally" into enemy ownership or "상대/적/enemy" into ally ownership.
+- If freeDescription says "상대 탑 쉔이 궁극기로 합류했다", every summary and analysis must keep Shen as the enemy top laner. Never rewrite this as "아군 탑 쉔".
+- Do not infer team ownership from champion identity. If ownership is ambiguous, keep it ambiguous and ask for replay confirmation instead of assigning a side.
+- If a structured field conflicts with an explicit ally/enemy ownership statement in freeDescription, preserve the explicit ownership statement and mention the conflict cautiously.
 
 Risk tag handling:
 - Explain risk tags in relation to the player's currentOutcome.
@@ -406,6 +441,12 @@ Level 3-F objective preparation / tradeoff decision:
 - GOOD_OBJECTIVE_PREP_TURN is positive context. Explain what preparation was sound instead of inventing a mistake.
 - For OBJECTIVE_TRADEOFF_MISREAD or MISSED_ALTERNATIVE_GAIN, explain the opportunity cost without blaming teammates.
 
+Level 4-B-1 scene assessment and roam review:
+- For MID_ROAM_FIGHT_JOIN, analyze the mid wave before movement, enemy mid follow timing, arrival timing, expected gain, opportunity cost, and the exit or conversion plan.
+- Do not expand MID_ROAM_FIGHT_JOIN into full teamfight analysis.
+- ALLY_SUPPORT_CANNOT_MOVE should not be a primary explanation for an explicitly top-side roam unless the player actually expected support cover.
+- A good_decision scene should still have a useful next_laning_goal, but frame it as a repeatable strength or a variable to keep checking rather than as a correction for a mistake.
+
 Output rules:
 - Return ONLY valid JSON.
 - Do not include markdown.
@@ -424,7 +465,7 @@ Output rules:
 - Raw values such as seen_same_side, toward_enemy_jungle, opposite_side, no_prio, moved_first, and wants_objective must not appear in main_question, follow_up_questions, explanations, analyses, goals, checklists, or confidence notes.
 - Never write plate_objective, 플레이트_objective, void_grubs, voidgrubs, grubs, or 보이드 그럽. Use "플레이트를 노릴 수 있는 시간대" and "공허 유충" instead.
 
-- Be careful not to reverse matchupNote meaning. If the player says "my champion struggles before level 6", do not rewrite it as the enemy champion struggling.
+- Be careful not to reverse matchupNote meaning. If the player says "my champion struggles before level 6", preserve that as the player's hypothesis and do not rewrite it as the enemy champion struggling.
 - In whatWentWell, praise the player's intention separately from the execution. For example, "정보를 얻으려는 의도는 좋았지만, 깊이와 타이밍은 위험했습니다."
 - Do not describe deep enemy jungle warding as STANDARD_POST_PUSH_VISION. Standard post-push vision usually means safer river, pixel bush, or entrance vision. Deep enemy jungle vision requires extra conditions such as ally jungle cover, enemy mid unable to move, or known enemy jungle location.
 - In uncertainInfo, do not repeat cooldowns or states already provided by enemyKeyCooldownsKnown or myKeyCooldownsKnown. Instead, ask for timing, distance, exact usage moment, or video/minimap evidence.
@@ -436,6 +477,7 @@ Output rules:
 - In uncertainInfo, do not list information that the player already provided in advanced context.
 - In sceneCheckpoints, prefer specific replay checks such as "와드 찍으러 가기 직전 상대 미드 위치", "우리 정글과의 거리", "상대 핵심 CC/이동기 쿨타임", "웨이브가 실제로 타워에 박혔는지".
 - In confidenceNote, mention whether advanced context was enough or whether video/minimap evidence is still needed.
+- Use death-specific Confidence Note wording only for actual death scenes. For every non-death scene, discuss the confidence of the scene review or decision interpretation, never a death or death cause.
 
 Return ONLY valid JSON with this exact structure:
 
@@ -449,6 +491,8 @@ Return ONLY valid JSON with this exact structure:
       "explanation": "string (Korean explanation)"
     }
   ],
+  "goodDecisionSummary": "string (Korean; positive assessment when supported, otherwise empty string)",
+  "improvementFocus": "string (Korean; one additional variable to check, otherwise empty string)",
   "coverAndEscapeAnalysis": "string (Korean; fill when Level 3-E cover/fight-direction fields or tags are relevant, otherwise empty string)",
   "next_laning_goal": "string (one concrete Korean goal for the next game)",
   "risk_checklist": ["string", "string", "string (2–4 items in Korean)"],
@@ -460,6 +504,8 @@ Field meaning:
 - main_question: The single most important question for this scenario. Write in Korean. Must be one question only.
 - follow_up_questions: 1–2 follow-up questions that do NOT overlap with main_question. Write in Korean.
 - possible_risk_factors: Explain the generated risk tags in player-friendly Korean. Keep tag names in English.
+- goodDecisionSummary: State what the player did well when the input supports it. Return an empty string when no positive assessment is supported.
+- improvementFocus: State one remaining risk or replay-check variable without negating the positive recognition. Return an empty string when it is not useful.
 - coverAndEscapeAnalysis: A concise Korean section about jungle/support cover, fight direction, and post-kill escape route. If Level 3-E fields are not relevant, return an empty string.
 - next_laning_goal: One concrete habit or decision rule the player can apply next game. Write in Korean. Prefer condition-based rules like "A 상황에서는 B를 먼저 확인한다."
 - risk_checklist: 2–4 short Korean checklist items the player should mentally check in similar situations.

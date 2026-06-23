@@ -243,9 +243,18 @@ export type CurrentOutcome =
   | "unclear_objective_join_tradeoff"
   | "unknown";
 
+export type SceneOutcomeAssessment =
+  | "good_decision"
+  | "risky_but_successful"
+  | "questionable"
+  | "loss"
+  | "death"
+  | "unclear";
+
 export type DeathReviewInput = {
   playerTier: string;
   currentOutcome: CurrentOutcome;
+  sceneOutcomeAssessment?: SceneOutcomeAssessment;
   myChampion: string;
   enemyChampion: string;
   gameTime: string;
@@ -369,6 +378,7 @@ export type ScenarioType =
   | "UNSAFE_WARDING"
   | "ADVANTAGE_CONVERSION"
   | "OBJECTIVE_PREP_TURN"
+  | "MID_ROAM_FIGHT_JOIN"
   | "GENERAL_LANING_DEATH";
 
 export type RiskFactor = {
@@ -388,6 +398,8 @@ export type ReviewResult = {
   main_question: string;
   follow_up_questions: string[];
   possible_risk_factors: RiskFactor[];
+  goodDecisionSummary?: string;
+  improvementFocus?: string;
   coverAndEscapeAnalysis?: string;
   next_laning_goal: string;
   risk_checklist: string[];

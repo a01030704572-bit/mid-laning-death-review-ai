@@ -92,6 +92,13 @@ const RAW_VALUE_LABELS: Record<string, string> = {
   allyJungleObjectiveIntent: "아군 정글의 오브젝트 의도",
   resourceBeforeObjective: "오브젝트 전 자원 상태",
   alternativeGainAvailable: "가능한 대체 이득",
+  sceneOutcomeAssessment: "장면 판단 결과",
+  good_decision: "좋은 판단",
+  risky_but_successful: "결과는 좋았지만 위험한 판단",
+  questionable: "아쉬운 판단",
+  loss: "손해로 이어진 판단",
+  death: "죽음으로 이어진 판단",
+  unclear: "판단하기 어려운 상태",
 };
 
 function escapeRegExp(value: string) {

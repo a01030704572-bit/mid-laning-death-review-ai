@@ -106,6 +106,21 @@ function focusMessage(pattern: HabitPattern) {
   return `${pattern.label}이 현재 가장 먼저 교정할 핵심 패턴으로 나타났습니다.`;
 }
 
+function shouldIgnoreTagForScene(record: ReviewSceneRecord, tag: RiskTag) {
+  if (
+    tag !== "ALLY_SUPPORT_CANNOT_MOVE" ||
+    record.routedScenario !== "MID_ROAM_FIGHT_JOIN"
+  ) {
+    return false;
+  }
+
+  const input = record.rawInputSnapshot;
+  return (
+    input.movementSide === "top_side" ||
+    input.fightDirection === "toward_top_side"
+  );
+}
+
 export function analyzeHabitPatterns(
   records: ReviewSceneRecord[]
 ): HabitPatternAnalysis {
@@ -119,7 +134,10 @@ export function analyzeHabitPatterns(
   const counts = new Map<RiskTag, number>();
 
   for (const record of recentRecords) {
+    if (record.sceneOutcomeAssessment === "good_decision") continue;
+
     for (const tag of new Set(record.riskTags)) {
+      if (shouldIgnoreTagForScene(record, tag)) continue;
       counts.set(tag, (counts.get(tag) ?? 0) + 1);
     }
   }
