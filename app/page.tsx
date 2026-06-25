@@ -5,6 +5,7 @@ import DeathReviewForm from "@/components/DeathReviewForm";
 import ReviewResultCard from "@/components/ReviewResultCard";
 import RecentHabitPatternCard from "@/components/RecentHabitPatternCard";
 import VideoDraftPanel from "@/components/VideoDraftPanel";
+import RiotEvidencePanel from "@/components/RiotEvidencePanel";
 import { ReviewResult, RiskTag, ScenarioType } from "@/types/review";
 import type { ReviewSceneCompletion } from "@/types/history";
 import {
@@ -77,6 +78,7 @@ export default function Home() {
         </header>
 
         <VideoDraftPanel />
+        <RiotEvidencePanel />
 
         <div className="grid gap-8 lg:grid-cols-2">
           <DeathReviewForm onResult={handleReviewResult} />

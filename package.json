@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:fixtures": "node --test tests/decisionEngine.fixtures.test.cjs tests/habitPatternAnalyzer.fixtures.test.cjs tests/aiProvider.fixtures.test.cjs"
+    "test:fixtures": "node --test tests/decisionEngine.fixtures.test.cjs tests/habitPatternAnalyzer.fixtures.test.cjs tests/aiProvider.fixtures.test.cjs tests/riotTimeline.fixtures.test.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.6.0",
