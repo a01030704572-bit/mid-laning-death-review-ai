@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { DeathReviewInput } from "@/types/review";
 import { generateRiskTags } from "@/lib/riskTagMapper";
@@ -6,10 +5,7 @@ import { buildReviewPrompt } from "@/lib/prompts";
 import { mapCoachingCategories } from "@/lib/coachingCategoryMapper";
 import { buildCoachingKnowledgeBlock } from "@/lib/coachingKnowledge";
 import { determineScenarioType } from "@/lib/scenarioRouter";
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+import { generateCoachingReview } from "@/lib/ai/generateReview";
 
 export async function POST(req: Request) {
   try {
@@ -30,15 +26,7 @@ export async function POST(req: Request) {
       scenarioType
     );
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
-
-    const text = response.text;
+    const text = await generateCoachingReview(prompt);
 
     if (!text) {
       return NextResponse.json(
