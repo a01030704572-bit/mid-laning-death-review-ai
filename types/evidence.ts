@@ -38,6 +38,19 @@ export type SceneEvidencePackage = {
   windowSec?: number;
 };
 
+export type ReviewEvidenceMetadata = {
+  sourcePresence: SceneEvidencePackage["sourcePresence"];
+  sourceConfidence: SceneEvidencePackage["sourceConfidence"];
+  evidenceSummary: string[];
+  missingInfo: string[];
+  conflictsSummary: {
+    count: number;
+    fields: string[];
+  };
+  derivedContext: SceneEvidencePackage["derivedContext"];
+  packageGenerationFailed?: boolean;
+};
+
 export type BuildSceneEvidencePackageInput = {
   manualInput?: Partial<DeathReviewInput> | null;
   videoDraft?: Partial<VideoReviewDraft> | null;
