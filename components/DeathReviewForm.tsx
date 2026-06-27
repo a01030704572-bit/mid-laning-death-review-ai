@@ -45,11 +45,14 @@ import type {
   ReviewSceneCompletion,
   ReviewSceneMetadataInput,
 } from "@/types/history";
+import type { ReviewEvidenceMetadata } from "@/types/evidence";
+import type { VideoReviewDraft } from "@/types/videoDraft";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Props = {
   onResult: (data: ReviewSceneCompletion) => void;
+  videoDraft?: VideoReviewDraft | null;
 };
 
 type UserScenario = ScenarioType | "NOT_SURE";
@@ -298,7 +301,7 @@ function getScenarioDefaults(scenario: UserScenario): Partial<DeathReviewInput> 
 }
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function DeathReviewForm({ onResult }: Props) {
+export default function DeathReviewForm({ onResult, videoDraft }: Props) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [userScenario, setUserScenario] = useState<UserScenario | null>(null);
   const [input, setInput] = useState<DeathReviewInput>(initialInput);
@@ -346,13 +349,21 @@ export default function DeathReviewForm({ onResult }: Props) {
       const res = await fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        body: JSON.stringify(
+          videoDraft
+            ? {
+                manualInput: input,
+                videoDraft,
+              }
+            : input
+        ),
       });
       const data = (await res.json()) as {
         error?: string;
         riskTags: RiskTag[];
         scenarioType: ScenarioType;
         result: ReviewResult;
+        evidenceMetadata?: ReviewEvidenceMetadata;
       };
       if (!res.ok) throw new Error(data.error || "Review request failed.");
       onResult({
@@ -361,6 +372,7 @@ export default function DeathReviewForm({ onResult }: Props) {
         scenarioType: data.scenarioType ?? data.result.scenario_type,
         result: data.result,
         sourceMetadata,
+        evidenceMetadata: data.evidenceMetadata,
       });
     } catch (error) {
       console.error(error);

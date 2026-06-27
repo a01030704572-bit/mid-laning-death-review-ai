@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 import DeathReviewForm from "@/components/DeathReviewForm";
 import ReviewResultCard from "@/components/ReviewResultCard";
+import EvidenceMetadataPreview from "@/components/EvidenceMetadataPreview";
 import RecentHabitPatternCard from "@/components/RecentHabitPatternCard";
 import VideoDraftPanel from "@/components/VideoDraftPanel";
 import RiotEvidencePanel from "@/components/RiotEvidencePanel";
 import { ReviewResult, RiskTag, ScenarioType } from "@/types/review";
 import type { ReviewSceneCompletion } from "@/types/history";
+import type { ReviewEvidenceMetadata } from "@/types/evidence";
+import type { VideoReviewDraft } from "@/types/videoDraft";
 import {
   clearReviewSceneHistory,
   createReviewSceneRecord,
@@ -21,10 +24,12 @@ export default function Home() {
     riskTags: RiskTag[];
     scenarioType?: ScenarioType;
     result: ReviewResult;
+    evidenceMetadata?: ReviewEvidenceMetadata;
   } | null>(null);
   const [habitAnalysis, setHabitAnalysis] = useState(() =>
     analyzeHabitPatterns([])
   );
+  const [videoDraft, setVideoDraft] = useState<VideoReviewDraft | null>(null);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -39,6 +44,7 @@ export default function Home() {
       riskTags: completion.riskTags,
       scenarioType: completion.scenarioType,
       result: completion.result,
+      evidenceMetadata: completion.evidenceMetadata,
     });
 
     const savedHistory = saveReviewSceneRecord(
@@ -77,19 +83,24 @@ export default function Home() {
           </p>
         </header>
 
-        <VideoDraftPanel />
+        <VideoDraftPanel onDraftChange={setVideoDraft} />
         <RiotEvidencePanel />
 
         <div className="grid gap-8 lg:grid-cols-2">
-          <DeathReviewForm onResult={handleReviewResult} />
+          <DeathReviewForm onResult={handleReviewResult} videoDraft={videoDraft} />
 
           <div className="space-y-6">
             {reviewData ? (
-              <ReviewResultCard
-                riskTags={reviewData.riskTags}
-                scenarioType={reviewData.scenarioType}
-                result={reviewData.result}
-              />
+              <>
+                <ReviewResultCard
+                  riskTags={reviewData.riskTags}
+                  scenarioType={reviewData.scenarioType}
+                  result={reviewData.result}
+                />
+                <EvidenceMetadataPreview
+                  evidenceMetadata={reviewData.evidenceMetadata}
+                />
+              </>
             ) : (
               <div className="flex min-h-96 items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-zinc-500">
                 <div>

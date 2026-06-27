@@ -6,6 +6,7 @@ import type {
   SceneOutcomeAssessment,
   ScenarioType,
 } from "@/types/review";
+import type { ReviewEvidenceMetadata } from "@/types/evidence";
 
 export type ReviewSceneSourceType = "manual" | "video_review";
 
@@ -44,6 +45,7 @@ export type ReviewSceneCompletion = {
   scenarioType: ScenarioType;
   result: ReviewResult;
   sourceMetadata?: ReviewSceneMetadataInput;
+  evidenceMetadata?: ReviewEvidenceMetadata;
 };
 
 export type HabitPatternLevel =

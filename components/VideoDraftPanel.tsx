@@ -11,6 +11,10 @@ import {
   MAX_VIDEO_DRAFT_BYTES,
 } from "@/lib/videoDraft";
 
+type Props = {
+  onDraftChange?: (draft: VideoReviewDraft | null) => void;
+};
+
 const SCENARIO_LABELS: Record<ScenarioType, string> = {
   PRE_LANE_VISION: "레벨 1 시야 / 인베이드",
   GANKED_WHILE_PUSHING: "라인 푸시 중 갱킹",
@@ -123,7 +127,7 @@ const FIELD_VALUE_LABELS: Record<string, string> = {
   escape_or_disengage: "이탈을 우선함",
 };
 
-export default function VideoDraftPanel() {
+export default function VideoDraftPanel({ onDraftChange }: Props) {
   const [clip, setClip] = useState<File | null>(null);
   const [note, setNote] = useState("");
   const [provider, setProvider] = useState<"gemini" | "openai">("gemini");
@@ -135,6 +139,8 @@ export default function VideoDraftPanel() {
   async function handleSubmit() {
     setError(null);
     setCopied(false);
+    setDraft(null);
+    onDraftChange?.(null);
 
     if (!clip) {
       setError("영상 클립 파일을 선택해주세요.");
@@ -173,6 +179,7 @@ export default function VideoDraftPanel() {
         throw new Error(data.error || "영상 초안 생성에 실패했습니다.");
       }
       setDraft(data.draft);
+      onDraftChange?.(data.draft);
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -219,6 +226,7 @@ export default function VideoDraftPanel() {
               setClip(event.target.files?.[0] ?? null);
               setError(null);
               setDraft(null);
+              onDraftChange?.(null);
             }}
             className="mt-1 block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200"
           />
@@ -251,6 +259,7 @@ export default function VideoDraftPanel() {
             setProvider(event.target.value as "gemini" | "openai");
             setError(null);
             setDraft(null);
+            onDraftChange?.(null);
           }}
           className="mt-1 w-full rounded-lg border border-zinc-300 bg-white p-2 text-sm text-zinc-800 md:max-w-xs"
         >
