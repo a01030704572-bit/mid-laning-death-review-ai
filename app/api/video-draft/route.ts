@@ -7,6 +7,13 @@ import {
   VideoInputUnsupportedError,
 } from "@/lib/ai/generateVideoDraft";
 import {
+  GEMINI_QUOTA_ERROR_MESSAGE,
+  GEMINI_UNAVAILABLE_ERROR_MESSAGE,
+  getGeminiErrorLogContext,
+  isGeminiQuotaError,
+  isGeminiUnavailableError,
+} from "@/lib/ai/geminiProvider";
+import {
   buildVideoDraftPrompt,
   getVideoDraftFileValidationError,
   InvalidVideoDraftResponseError,
@@ -118,6 +125,26 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: OPENAI_INSUFFICIENT_QUOTA_ERROR },
         { status: 429 }
+      );
+    }
+    if (isGeminiQuotaError(error)) {
+      console.warn(
+        "Gemini video draft failed due to quota.",
+        getGeminiErrorLogContext(error)
+      );
+      return NextResponse.json(
+        { error: GEMINI_QUOTA_ERROR_MESSAGE },
+        { status: 429 }
+      );
+    }
+    if (isGeminiUnavailableError(error)) {
+      console.warn(
+        "Gemini video draft failed due to temporary unavailability.",
+        getGeminiErrorLogContext(error)
+      );
+      return NextResponse.json(
+        { error: GEMINI_UNAVAILABLE_ERROR_MESSAGE },
+        { status: 503 }
       );
     }
     if (error instanceof VideoInputUnsupportedError) {

@@ -176,6 +176,7 @@ function makeRiotEvidence() {
 
 function loadReviewRoute({
   buildSceneEvidencePackage = evidencePackageModule.buildSceneEvidencePackage,
+  generateCoachingReview,
 } = {}) {
   const captured = {
     promptInputs: [],
@@ -222,14 +223,38 @@ function loadReviewRoute({
       determineScenarioType: () => "GENERAL_LANING_DEATH",
     },
     "@/lib/ai/generateReview": {
-      generateCoachingReview: async (prompt) => {
+      generateCoachingReview: generateCoachingReview ?? (async (prompt) => {
         captured.generatedPrompt = prompt;
         return JSON.stringify(baseReviewResult);
-      },
+      }),
+    },
+    "@/lib/ai/geminiProvider": {
+      GEMINI_QUOTA_ERROR_MESSAGE:
+        "Gemini 무료 요청 한도를 초과했습니다. 잠시 후 다시 시도하거나 모델/결제 설정을 확인해 주세요.",
+      GEMINI_UNAVAILABLE_ERROR_MESSAGE:
+        "Gemini 모델이 일시적으로 혼잡합니다. 잠시 후 다시 시도해 주세요.",
+      getGeminiErrorLogContext: (error) => ({
+        status: error?.status,
+        code: error?.code,
+        message: error instanceof Error ? error.message : undefined,
+      }),
+      isGeminiQuotaError: (error) =>
+        error?.status === 429 ||
+        error?.code === "RESOURCE_EXHAUSTED" ||
+        error?.message?.includes("RESOURCE_EXHAUSTED"),
+      isGeminiUnavailableError: (error) =>
+        error?.status === 503 ||
+        error?.code === "UNAVAILABLE" ||
+        error?.message?.includes("UNAVAILABLE"),
     },
   });
 
   return { routeModule, captured };
+}
+
+function restoreEnv(name, value) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
 }
 
 async function postReview(routeModule, body) {
@@ -325,4 +350,71 @@ test("AI prompt behavior is not changed by evidenceMetadata", async () => {
   assert.equal("riotEvidence" in captured.promptInputs[0], false);
   assert.doesNotMatch(captured.generatedPrompt, /evidenceMetadata/);
   assert.doesNotMatch(captured.generatedPrompt, /Riot delta/);
+});
+
+test("/api/review maps Gemini quota and unavailable errors", async () => {
+  for (const fixture of [
+    {
+      status: 429,
+      code: "RESOURCE_EXHAUSTED",
+      message: "429 RESOURCE_EXHAUSTED generate_content_free_tier_requests",
+      expected:
+        "Gemini 무료 요청 한도를 초과했습니다. 잠시 후 다시 시도하거나 모델/결제 설정을 확인해 주세요.",
+    },
+    {
+      status: 503,
+      code: "UNAVAILABLE",
+      message: "503 UNAVAILABLE high demand",
+      expected: "Gemini 모델이 일시적으로 혼잡합니다. 잠시 후 다시 시도해 주세요.",
+    },
+  ]) {
+    const { routeModule } = loadReviewRoute({
+      generateCoachingReview: async () => {
+        const error = new Error(fixture.message);
+        error.status = fixture.status;
+        error.code = fixture.code;
+        error.headers = {
+          "x-request-id": "gemini_review_req_fixture_should_not_reach_client",
+        };
+        throw error;
+      },
+    });
+
+    const response = await postReview(routeModule, makeInput());
+
+    assert.equal(response.status, fixture.status);
+    assert.deepEqual(Object.keys(response.body), ["error"]);
+    assert.equal(response.body.error, fixture.expected);
+    assert.equal(
+      JSON.stringify(response.body).includes("gemini_review_req_fixture"),
+      false
+    );
+  }
+});
+
+test("AI_REVIEW_MOCK skips external review generation but keeps evidence metadata", async () => {
+  const originalMock = process.env.AI_REVIEW_MOCK;
+  let externalCallCount = 0;
+  const { routeModule } = loadReviewRoute({
+    generateCoachingReview: async () => {
+      externalCallCount += 1;
+      throw new Error("external call should be skipped");
+    },
+  });
+
+  try {
+    process.env.AI_REVIEW_MOCK = "true";
+    const response = await postReview(routeModule, {
+      manualInput: makeInput(),
+      videoDraft: makeVideoDraft(),
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(externalCallCount, 0);
+    assert.match(response.body.result.main_question, /\[DEV MOCK\]/);
+    assert.equal(response.body.evidenceMetadata.sourcePresence.manual, true);
+    assert.equal(response.body.evidenceMetadata.sourcePresence.video, true);
+  } finally {
+    restoreEnv("AI_REVIEW_MOCK", originalMock);
+  }
 });

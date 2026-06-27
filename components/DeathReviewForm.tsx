@@ -376,7 +376,11 @@ export default function DeathReviewForm({ onResult, videoDraft }: Props) {
       });
     } catch (error) {
       console.error(error);
-      alert("리뷰 생성에 실패했습니다. API Key 또는 서버 로그를 확인해보세요.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "리뷰 생성에 실패했습니다. API Key 또는 서버 로그를 확인해보세요."
+      );
     } finally {
       setLoading(false);
     }

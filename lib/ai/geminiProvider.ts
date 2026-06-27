@@ -5,6 +5,12 @@ import type {
 } from "@/lib/ai/types";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite";
+export const DEFAULT_GEMINI_REVIEW_MODEL = "gemini-2.5-flash";
+export const DEFAULT_GEMINI_VIDEO_MODEL = "gemini-2.5-flash";
+export const GEMINI_QUOTA_ERROR_MESSAGE =
+  "Gemini 무료 요청 한도를 초과했습니다. 잠시 후 다시 시도하거나 모델/결제 설정을 확인해 주세요.";
+export const GEMINI_UNAVAILABLE_ERROR_MESSAGE =
+  "Gemini 모델이 일시적으로 혼잡합니다. 잠시 후 다시 시도해 주세요.";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -12,6 +18,62 @@ const ai = new GoogleGenAI({
 
 export function resolveGeminiModel(model = process.env.GEMINI_MODEL) {
   return model?.trim() || DEFAULT_GEMINI_MODEL;
+}
+
+export function resolveGeminiReviewModel(
+  model = process.env.GEMINI_REVIEW_MODEL ?? process.env.GEMINI_MODEL
+) {
+  return model?.trim() || DEFAULT_GEMINI_REVIEW_MODEL;
+}
+
+export function resolveGeminiVideoModel(
+  model = process.env.GEMINI_VIDEO_MODEL ?? process.env.GEMINI_MODEL
+) {
+  return model?.trim() || DEFAULT_GEMINI_VIDEO_MODEL;
+}
+
+function getErrorField(error: unknown, field: string) {
+  if (!error || typeof error !== "object") return undefined;
+  const value = (error as Record<string, unknown>)[field];
+  return typeof value === "string" || typeof value === "number"
+    ? value
+    : undefined;
+}
+
+export function getGeminiErrorLogContext(error: unknown) {
+  return {
+    status: getErrorField(error, "status"),
+    code: getErrorField(error, "code"),
+    message: error instanceof Error ? error.message : undefined,
+  };
+}
+
+export function isGeminiQuotaError(error: unknown) {
+  const status = getErrorField(error, "status");
+  const code = getErrorField(error, "code");
+  const message = error instanceof Error ? error.message : "";
+
+  return (
+    status === 429 ||
+    code === 429 ||
+    code === "RESOURCE_EXHAUSTED" ||
+    message.includes("RESOURCE_EXHAUSTED") ||
+    message.includes("generate_content_free_tier_requests")
+  );
+}
+
+export function isGeminiUnavailableError(error: unknown) {
+  const status = getErrorField(error, "status");
+  const code = getErrorField(error, "code");
+  const message = error instanceof Error ? error.message : "";
+
+  return (
+    status === 503 ||
+    code === 503 ||
+    code === "UNAVAILABLE" ||
+    message.includes("UNAVAILABLE") ||
+    message.toLowerCase().includes("high demand")
+  );
 }
 
 function wait(durationMs: number) {
@@ -53,7 +115,7 @@ async function waitForActiveFile(
 export const geminiProvider: AiProvider = {
   async generateCoachingReview(prompt) {
     const response = await ai.models.generateContent({
-      model: resolveGeminiModel(),
+      model: resolveGeminiReviewModel(),
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -76,7 +138,7 @@ export const geminiProvider: AiProvider = {
       }
 
       const response = await ai.models.generateContent({
-        model: resolveGeminiModel(),
+        model: resolveGeminiVideoModel(),
         contents: [
           {
             role: "user",

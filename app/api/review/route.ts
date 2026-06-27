@@ -10,6 +10,13 @@ import { mapCoachingCategories } from "@/lib/coachingCategoryMapper";
 import { buildCoachingKnowledgeBlock } from "@/lib/coachingKnowledge";
 import { determineScenarioType } from "@/lib/scenarioRouter";
 import { generateCoachingReview } from "@/lib/ai/generateReview";
+import {
+  GEMINI_QUOTA_ERROR_MESSAGE,
+  GEMINI_UNAVAILABLE_ERROR_MESSAGE,
+  getGeminiErrorLogContext,
+  isGeminiQuotaError,
+  isGeminiUnavailableError,
+} from "@/lib/ai/geminiProvider";
 
 type ReviewRequestBody = Partial<DeathReviewInput> & {
   manualInput?: Partial<DeathReviewInput> | null;
@@ -131,6 +138,10 @@ function buildEvidenceMetadataSafely({
   }
 }
 
+function isReviewMockEnabled() {
+  return process.env.AI_REVIEW_MOCK?.trim().toLowerCase() === "true";
+}
+
 export async function POST(req: Request) {
   try {
     const { input, videoDraft, riotEvidence } = extractReviewRequest(
@@ -157,7 +168,22 @@ export async function POST(req: Request) {
       scenarioType
     );
 
-    const text = await generateCoachingReview(prompt);
+    const text = isReviewMockEnabled()
+      ? JSON.stringify({
+          scenario_type: scenarioType,
+          main_question:
+            "[DEV MOCK] 외부 AI 호출 없이 생성된 개발용 리뷰입니다. 실제 판단은 아닙니다.",
+          follow_up_questions: [
+            "[DEV MOCK] 실제 리뷰 전환 전 입력값과 근거 연결 상태를 확인하세요.",
+          ],
+          possible_risk_factors: [],
+          next_laning_goal:
+            "[DEV MOCK] AI_REVIEW_MOCK=false로 바꾼 뒤 실제 리뷰를 다시 생성하세요.",
+          risk_checklist: ["[DEV MOCK] 외부 모델 호출 생략"],
+          confidence_note:
+            "[DEV MOCK] 개발용 mock 응답입니다. Gemini 호출을 수행하지 않았습니다.",
+        })
+      : await generateCoachingReview(prompt);
 
     if (!text) {
       return NextResponse.json(
@@ -176,6 +202,27 @@ export async function POST(req: Request) {
       evidenceMetadata,
     });
   } catch (error) {
+    if (isGeminiQuotaError(error)) {
+      console.warn(
+        "Gemini review failed due to quota.",
+        getGeminiErrorLogContext(error)
+      );
+      return NextResponse.json(
+        { error: GEMINI_QUOTA_ERROR_MESSAGE },
+        { status: 429 }
+      );
+    }
+    if (isGeminiUnavailableError(error)) {
+      console.warn(
+        "Gemini review failed due to temporary unavailability.",
+        getGeminiErrorLogContext(error)
+      );
+      return NextResponse.json(
+        { error: GEMINI_UNAVAILABLE_ERROR_MESSAGE },
+        { status: 503 }
+      );
+    }
+
     console.error(error);
 
     return NextResponse.json(

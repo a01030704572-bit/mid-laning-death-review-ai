@@ -136,6 +136,7 @@ function loadVideoDraftRoute(generateVideoDraft) {
       ...generateVideoDraftModule,
       generateVideoDraft,
     },
+    "@/lib/ai/geminiProvider": geminiModule,
     "@/lib/videoDraft": videoDraftModule,
   });
 }
@@ -145,35 +146,68 @@ function restoreEnv(name, value) {
   else process.env[name] = value;
 }
 
-test("Gemini model uses the configured value with the existing fallback", async () => {
+test("Gemini review and video models use separate env overrides", async () => {
   const originalModel = process.env.GEMINI_MODEL;
+  const originalReviewModel = process.env.GEMINI_REVIEW_MODEL;
+  const originalVideoModel = process.env.GEMINI_VIDEO_MODEL;
   const originalApiKey = process.env.GEMINI_API_KEY;
 
   try {
     delete process.env.GEMINI_MODEL;
+    delete process.env.GEMINI_REVIEW_MODEL;
+    delete process.env.GEMINI_VIDEO_MODEL;
     assert.equal(
       geminiModule.resolveGeminiModel(),
       "gemini-2.5-flash-lite"
     );
     assert.equal(
-      geminiModule.resolveGeminiModel("  gemini-custom-model  "),
-      "gemini-custom-model"
+      geminiModule.resolveGeminiReviewModel(),
+      "gemini-2.5-flash"
+    );
+    assert.equal(
+      geminiModule.resolveGeminiVideoModel(),
+      "gemini-2.5-flash"
+    );
+    assert.notEqual(
+      geminiModule.resolveGeminiVideoModel(),
+      "gemini-2.5-flash-lite"
+    );
+    assert.equal(
+      geminiModule.resolveGeminiReviewModel("  gemini-review-direct  "),
+      "gemini-review-direct"
+    );
+    assert.equal(
+      geminiModule.resolveGeminiVideoModel("  gemini-video-direct  "),
+      "gemini-video-direct"
     );
 
-    process.env.GEMINI_MODEL = "gemini-configured-model";
+    process.env.GEMINI_REVIEW_MODEL = "gemini-review-configured";
     const text = await geminiModule.geminiProvider.generateCoachingReview(
       "fixture prompt"
     );
 
     assert.equal(text, '{"main_question":"fixture"}');
     assert.deepEqual(generateContentRequest, {
-      model: "gemini-configured-model",
+      model: "gemini-review-configured",
       contents: "fixture prompt",
       config: { responseMimeType: "application/json" },
     });
     assert.equal(clientOptions.apiKey, originalApiKey);
+
+    delete process.env.GEMINI_REVIEW_MODEL;
+    process.env.GEMINI_MODEL = "gemini-legacy-fallback";
+    assert.equal(
+      geminiModule.resolveGeminiReviewModel(),
+      "gemini-legacy-fallback"
+    );
+    assert.equal(
+      geminiModule.resolveGeminiVideoModel(),
+      "gemini-legacy-fallback"
+    );
   } finally {
     restoreEnv("GEMINI_MODEL", originalModel);
+    restoreEnv("GEMINI_REVIEW_MODEL", originalReviewModel);
+    restoreEnv("GEMINI_VIDEO_MODEL", originalVideoModel);
   }
 });
 
@@ -385,6 +419,50 @@ test("/api/video-draft returns a clear OpenAI insufficient quota error", async (
     });
   } finally {
     console.warn = originalWarn;
+  }
+});
+
+test("/api/video-draft maps Gemini quota and unavailable errors", async () => {
+  for (const fixture of [
+    {
+      status: 429,
+      code: "RESOURCE_EXHAUSTED",
+      message: "429 RESOURCE_EXHAUSTED generate_content_free_tier_requests",
+      expected:
+        "Gemini 무료 요청 한도를 초과했습니다. 잠시 후 다시 시도하거나 모델/결제 설정을 확인해 주세요.",
+    },
+    {
+      status: 503,
+      code: "UNAVAILABLE",
+      message: "503 UNAVAILABLE high demand",
+      expected: "Gemini 모델이 일시적으로 혼잡합니다. 잠시 후 다시 시도해 주세요.",
+    },
+  ]) {
+    const routeModule = loadVideoDraftRoute(async () => {
+      const error = new Error(fixture.message);
+      error.status = fixture.status;
+      error.code = fixture.code;
+      error.headers = {
+        "x-request-id": "gemini_req_fixture_should_not_reach_client",
+      };
+      throw error;
+    });
+    const formData = new FormData();
+    const FileCtor = globalThis.File ?? NodeFile;
+    formData.append(
+      "clip",
+      new FileCtor(["fixture-video"], "clip.mp4", { type: "video/mp4" })
+    );
+    formData.append("provider", "gemini");
+
+    const response = await routeModule.POST({
+      formData: async () => formData,
+    });
+
+    assert.equal(response.status, fixture.status);
+    assert.deepEqual(Object.keys(response.body), ["error"]);
+    assert.equal(response.body.error, fixture.expected);
+    assert.equal(JSON.stringify(response.body).includes("gemini_req_fixture"), false);
   }
 });
 
@@ -649,6 +727,7 @@ test("dragon secured note maps conversion to objective secured instead of lane r
 test("Gemini video draft uploads, polls until active, and attempts cleanup", async () => {
   const originalProvider = process.env.AI_PROVIDER;
   const originalModel = process.env.GEMINI_MODEL;
+  const originalVideoModel = process.env.GEMINI_VIDEO_MODEL;
   const clip = new Blob(["fixture-video"], { type: "video/mp4" });
 
   generateContentError = undefined;
@@ -658,7 +737,8 @@ test("Gemini video draft uploads, polls until active, and attempts cleanup", asy
 
   try {
     process.env.AI_PROVIDER = "gemini";
-    process.env.GEMINI_MODEL = "gemini-video-fixture";
+    process.env.GEMINI_MODEL = "gemini-legacy-fixture";
+    process.env.GEMINI_VIDEO_MODEL = "gemini-video-fixture";
     const text = await generateVideoDraftModule.generateVideoDraft(
       "draft prompt",
       clip,
@@ -683,6 +763,7 @@ test("Gemini video draft uploads, polls until active, and attempts cleanup", asy
   } finally {
     restoreEnv("AI_PROVIDER", originalProvider);
     restoreEnv("GEMINI_MODEL", originalModel);
+    restoreEnv("GEMINI_VIDEO_MODEL", originalVideoModel);
   }
 });
 
