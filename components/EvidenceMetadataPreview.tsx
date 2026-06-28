@@ -29,6 +29,12 @@ const SOURCE_ORDER: (keyof ReviewEvidenceMetadata["sourcePresence"])[] = [
   "riot",
 ];
 
+const CONFIDENCE_LABELS = {
+  high: "신뢰도 높음",
+  medium: "신뢰도 중간",
+  low: "신뢰도 낮음",
+} as const;
+
 function CompactList({ items }: { items: string[] }) {
   if (items.length === 0) return null;
 
@@ -81,6 +87,7 @@ export default function EvidenceMetadataPreview({ evidenceMetadata }: Props) {
 
   const hasConflict = evidenceMetadata.conflictsSummary.count > 0;
   const derivedContext = evidenceMetadata.derivedContext;
+  const sceneCandidates = evidenceMetadata.sceneCandidates;
 
   return (
     <aside className="rounded-2xl border border-zinc-200 bg-white p-4 text-sm shadow-sm">
@@ -165,6 +172,43 @@ export default function EvidenceMetadataPreview({ evidenceMetadata }: Props) {
         {derivedContext.riskTagsFromEvidence.length > 0 && (
           <Section title="근거 기반 위험 태그">
             <ChipList items={derivedContext.riskTagsFromEvidence} />
+          </Section>
+        )}
+
+        {sceneCandidates && sceneCandidates.candidates.length > 0 && (
+          <Section title="장면 후보">
+            <div className="mt-2 space-y-3">
+              {sceneCandidates.candidates.map((candidate) => (
+                <div
+                  key={candidate.scenarioId}
+                  className="rounded-xl border border-zinc-200 bg-zinc-50 p-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-semibold text-zinc-900">
+                      {candidate.displayNameKo}
+                    </p>
+                    <span className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-600">
+                      {CONFIDENCE_LABELS[candidate.confidence]}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-zinc-600">
+                    {candidate.reasonKo}
+                  </p>
+                  <ChipList items={candidate.matchedRiskTags} />
+                  {candidate.limitingFactors.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-[11px] font-semibold text-zinc-500">
+                        추가 확인 필요
+                      </p>
+                      <CompactList items={candidate.limitingFactors} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-zinc-500">
+              {sceneCandidates.noteKo}
+            </p>
           </Section>
         )}
       </div>

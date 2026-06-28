@@ -48,7 +48,25 @@ export type ReviewEvidenceMetadata = {
     fields: string[];
   };
   derivedContext: SceneEvidencePackage["derivedContext"];
+  sceneCandidates?: SceneCandidateMetadata;
   packageGenerationFailed?: boolean;
+};
+
+export type CompactSceneCandidateMetadata = {
+  scenarioId: string;
+  displayNameKo: string;
+  confidence: "high" | "medium" | "low";
+  matchedRiskTags: string[];
+  reasonKo: string;
+  limitingFactors: string[];
+};
+
+export type SceneCandidateMetadata = {
+  candidates: CompactSceneCandidateMetadata[];
+  candidateScenarioIds: string[];
+  candidateMetricIds: string[];
+  candidateHabitPatternIds: string[];
+  noteKo: string;
 };
 
 export type BuildSceneEvidencePackageInput = {

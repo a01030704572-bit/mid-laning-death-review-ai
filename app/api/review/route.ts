@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import type { ReviewEvidenceMetadata, SceneEvidencePackage } from "@/types/evidence";
+import type {
+  ReviewEvidenceMetadata,
+  SceneEvidencePackage,
+  SceneCandidateMetadata,
+} from "@/types/evidence";
 import type { RiotTimelineEvidence } from "@/types/riot";
 import type { DeathReviewInput } from "@/types/review";
 import type { VideoReviewDraft } from "@/types/videoDraft";
@@ -10,6 +14,8 @@ import { mapCoachingCategories } from "@/lib/coachingCategoryMapper";
 import { buildCoachingKnowledgeBlock } from "@/lib/coachingKnowledge";
 import { determineScenarioType } from "@/lib/scenarioRouter";
 import { generateCoachingReview } from "@/lib/ai/generateReview";
+import { getSceneScenarioById } from "@/lib/coachingMetrics";
+import { mapEvidenceToSceneCandidates } from "@/lib/sceneCandidateMapper";
 import {
   GEMINI_QUOTA_ERROR_MESSAGE,
   GEMINI_UNAVAILABLE_ERROR_MESSAGE,
@@ -138,6 +144,46 @@ function buildEvidenceMetadataSafely({
   }
 }
 
+function buildSceneCandidateMetadata({
+  riskTags,
+  scenarioType,
+  currentOutcome,
+  evidenceMetadata,
+}: {
+  riskTags: string[];
+  scenarioType: string;
+  currentOutcome: string;
+  evidenceMetadata: ReviewEvidenceMetadata;
+}): SceneCandidateMetadata {
+  const mappingResult = mapEvidenceToSceneCandidates({
+    riskTags,
+    scenarioType,
+    currentOutcome,
+    evidenceSummary: evidenceMetadata.evidenceSummary,
+    derivedContext: evidenceMetadata.derivedContext,
+  });
+
+  return {
+    candidates: mappingResult.scenarioCandidates.slice(0, 3).map((candidate) => {
+      const scenario = getSceneScenarioById(candidate.scenarioId);
+
+      return {
+        scenarioId: candidate.scenarioId,
+        displayNameKo: scenario?.displayNameKo ?? candidate.scenarioId,
+        confidence: candidate.confidence,
+        matchedRiskTags: candidate.matchedRiskTags,
+        reasonKo: candidate.reasonKo,
+        limitingFactors: candidate.limitingFactors,
+      };
+    }),
+    candidateScenarioIds: mappingResult.candidateScenarioIds,
+    candidateMetricIds: mappingResult.candidateMetricIds,
+    candidateHabitPatternIds: mappingResult.candidateHabitPatternIds,
+    noteKo:
+      "이 항목은 최종 판정이 아니라 Risk Tag와 근거를 기반으로 한 복기 후보입니다.",
+  };
+}
+
 function isReviewMockEnabled() {
   return process.env.AI_REVIEW_MOCK?.trim().toLowerCase() === "true";
 }
@@ -155,6 +201,12 @@ export async function POST(req: Request) {
 
     const riskTags = generateRiskTags(input);
     const scenarioType = determineScenarioType(input, riskTags);
+    evidenceMetadata.sceneCandidates = buildSceneCandidateMetadata({
+      riskTags,
+      scenarioType,
+      currentOutcome: input.currentOutcome,
+      evidenceMetadata,
+    });
 
     const coachingCategories = mapCoachingCategories(input, riskTags);
     const coachingKnowledgeBlock =

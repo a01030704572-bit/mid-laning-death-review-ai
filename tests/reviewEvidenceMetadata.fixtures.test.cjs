@@ -30,6 +30,13 @@ function loadTypeScriptModule(relativePath, dependencies = {}) {
 }
 
 const evidencePackageModule = loadTypeScriptModule("lib/evidencePackage.ts");
+const coachingMetricsModule = loadTypeScriptModule("lib/coachingMetrics.ts");
+const sceneCandidateMapperModule = loadTypeScriptModule(
+  "lib/sceneCandidateMapper.ts",
+  {
+    "@/lib/coachingMetrics": coachingMetricsModule,
+  }
+);
 
 const baseReviewResult = {
   scenario_type: "GENERAL_LANING_DEATH",
@@ -176,6 +183,7 @@ function makeRiotEvidence() {
 
 function loadReviewRoute({
   buildSceneEvidencePackage = evidencePackageModule.buildSceneEvidencePackage,
+  generateRiskTags = () => ["NO_RIVER_VISION"],
   generateCoachingReview,
 } = {}) {
   const captured = {
@@ -195,8 +203,10 @@ function loadReviewRoute({
     "@/lib/evidencePackage": {
       buildSceneEvidencePackage,
     },
+    "@/lib/coachingMetrics": coachingMetricsModule,
+    "@/lib/sceneCandidateMapper": sceneCandidateMapperModule,
     "@/lib/riskTagMapper": {
-      generateRiskTags: () => ["NO_RIVER_VISION"],
+      generateRiskTags,
     },
     "@/lib/prompts": {
       buildReviewPrompt: (input, riskTags, coachingCategories, knowledge, scenarioType) => {
@@ -350,6 +360,88 @@ test("AI prompt behavior is not changed by evidenceMetadata", async () => {
   assert.equal("riotEvidence" in captured.promptInputs[0], false);
   assert.doesNotMatch(captured.generatedPrompt, /evidenceMetadata/);
   assert.doesNotMatch(captured.generatedPrompt, /Riot delta/);
+});
+
+test("/api/review evidenceMetadata includes compact sceneCandidates when risk tags map to candidates", async () => {
+  const { routeModule } = loadReviewRoute({
+    generateRiskTags: () => [
+      "NO_RIVER_VISION",
+      "ENEMY_JUNGLER_UNKNOWN",
+      "NO_FLASH_WINDOW",
+      "UNSAFE_WARDING",
+    ],
+  });
+  const response = await postReview(routeModule, {
+    manualInput: makeInput(),
+    videoDraft: makeVideoDraft(),
+    riotEvidence: makeRiotEvidence(),
+  });
+
+  assert.equal(response.status, 200);
+  const sceneCandidates = response.body.evidenceMetadata.sceneCandidates;
+  assert.ok(sceneCandidates);
+  assert.equal(sceneCandidates.candidates.length <= 3, true);
+  assert.ok(
+    sceneCandidates.candidateScenarioIds.includes(
+      "fight_with_unknown_enemy_jungler"
+    )
+  );
+  assert.ok(sceneCandidates.candidateMetricIds.length > 0);
+  assert.ok(sceneCandidates.candidateHabitPatternIds.length > 0);
+  assert.match(sceneCandidates.noteKo, /복기 후보/);
+
+  const firstCandidate = sceneCandidates.candidates[0];
+  assert.equal(typeof firstCandidate.displayNameKo, "string");
+  assert.equal(typeof firstCandidate.reasonKo, "string");
+  assert.equal(Array.isArray(firstCandidate.matchedRiskTags), true);
+  assert.equal(Array.isArray(firstCandidate.limitingFactors), true);
+  assert.equal("boostingEvidence" in firstCandidate, false);
+  assert.equal("sources" in sceneCandidates, false);
+});
+
+test("sceneCandidates do not change AI prompt behavior", async () => {
+  const { routeModule, captured } = loadReviewRoute({
+    generateRiskTags: () => ["NO_FLASH_WINDOW"],
+  });
+  const input = makeInput();
+  const response = await postReview(routeModule, input);
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.evidenceMetadata.sceneCandidates);
+  assert.deepEqual(captured.promptInputs[0], input);
+  assert.doesNotMatch(captured.generatedPrompt, /sceneCandidates/);
+  assert.doesNotMatch(captured.generatedPrompt, /fight_without_flash_or_escape/);
+});
+
+test("empty or unknown risk tags do not break evidenceMetadata", async () => {
+  for (const generateRiskTags of [
+    () => [],
+    () => ["UNKNOWN_FIXTURE_TAG"],
+  ]) {
+    const { routeModule } = loadReviewRoute({ generateRiskTags });
+    const response = await postReview(routeModule, makeInput());
+
+    assert.equal(response.status, 200);
+    assert.ok(response.body.evidenceMetadata.sceneCandidates);
+    assert.deepEqual(response.body.evidenceMetadata.sceneCandidates.candidates, []);
+    assert.deepEqual(
+      response.body.evidenceMetadata.sceneCandidates.candidateScenarioIds,
+      []
+    );
+  }
+});
+
+test("EvidenceMetadataPreview renders scene candidates as candidates, not final diagnosis", () => {
+  const source = fs.readFileSync(
+    path.join(process.cwd(), "components", "EvidenceMetadataPreview.tsx"),
+    "utf8"
+  );
+
+  assert.match(source, /장면 후보/);
+  assert.match(source, /추가 확인 필요/);
+  assert.match(source, /sceneCandidates\.noteKo/);
+  assert.match(source, /가능성/);
+  assert.doesNotMatch(source, /정답|원인 확정/);
 });
 
 test("/api/review maps Gemini quota and unavailable errors", async () => {
