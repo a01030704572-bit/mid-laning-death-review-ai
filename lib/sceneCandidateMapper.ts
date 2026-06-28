@@ -144,12 +144,72 @@ function hasPushOrForwardContext(contextText: string) {
 
 function hasEnemyJungleInvolvement(contextText: string) {
   return hasAnyText(contextText, [
-    "jungle",
-    "jungler",
-    "정글",
+    "enemy jungle involvement",
+    "jungler appeared",
+    "jungler involved",
+    "jungle gank",
+    "ganked",
+    "jungle kill",
+    "정글 개입",
+    "정글러 개입",
+    "정글러 등장",
+    "정글 관여",
     "갱",
+    "갱킹",
     "gank",
-    "enemy jungle",
+  ]);
+}
+
+function hasGankScenarioContext(contextText: string) {
+  return hasAnyText(contextText, [
+    "ganked_while_pushing",
+    "jungle_gank",
+    "pushed_gank",
+    "possible_gank_setup",
+    "vision_or_warding",
+  ]);
+}
+
+function hasSoloDuelContext(contextText: string) {
+  return hasAnyText(contextText, [
+    "solo_kill",
+    "solo kill",
+    "solo_kill_trade",
+    "duel",
+    "1:1",
+    "솔킬",
+    "맞다이",
+    "일대일",
+  ]);
+}
+
+function hasPostKillConversionContext(contextText: string) {
+  return hasAnyText(contextText, [
+    "post kill",
+    "post-kill",
+    "after kill",
+    "conversion",
+    "value conversion",
+    "wave",
+    "wave crash",
+    "crash",
+    "recall",
+    "low hp",
+    "plate",
+    "cs",
+    "킬 이후",
+    "솔킬 이후",
+    "이득 전환",
+    "가치 전환",
+    "전환",
+    "웨이브",
+    "라인을 오래",
+    "라인에 오래",
+    "박지 못",
+    "크래시",
+    "리콜",
+    "체력",
+    "플레이트",
   ]);
 }
 
@@ -280,29 +340,52 @@ export function mapEvidenceToSceneCandidates(
     });
 
     const gankBoosters: string[] = [];
-    if (hasPushOrForwardContext(contextText)) {
+    const hasPushRiskTag = riskTagSet.has("UNTRACKED_PUSH");
+    const hasGankRiskTag = riskTagSet.has("POSSIBLE_GANK_SETUP");
+    const hasPushOrForwardEvidence =
+      hasPushRiskTag || hasPushOrForwardContext(contextText);
+    const hasActualGankOrLossEvidence =
+      hasGankRiskTag ||
+      hasDeathOrLoss ||
+      hasEnemyJungleInvolvement(contextText) ||
+      hasGankScenarioContext(contextText);
+    const canBoostGankedWhilePushing =
+      hasPushOrForwardEvidence && hasActualGankOrLossEvidence;
+
+    if (hasPushRiskTag || hasPushOrForwardContext(contextText)) {
       gankBoosters.push("라인 푸시 또는 전진 정황");
     }
     if (hasDeathOrLoss) {
       gankBoosters.push("사망 또는 손실 정황");
     }
-    if (hasEnemyJungleInvolvement(contextText)) {
+    if (hasGankRiskTag || hasEnemyJungleInvolvement(contextText)) {
       gankBoosters.push("상대 정글 개입 정황");
     }
 
     addOrMergeCandidate(candidates, {
       scenarioId: "ganked_while_pushing",
-      confidence: gankBoosters.length > 0 ? "high" : "medium",
-      matchedRiskTags: ["NO_RIVER_VISION", "ENEMY_JUNGLER_UNKNOWN"],
-      boostingEvidence: gankBoosters,
+      confidence: canBoostGankedWhilePushing ? "high" : "medium",
+      matchedRiskTags: [
+        "NO_RIVER_VISION",
+        "ENEMY_JUNGLER_UNKNOWN",
+        ...["UNTRACKED_PUSH", "POSSIBLE_GANK_SETUP"].filter((tag) =>
+          riskTagSet.has(tag)
+        ),
+      ],
+      boostingEvidence: canBoostGankedWhilePushing ? gankBoosters : [],
       limitingFactors:
-        gankBoosters.length > 0
+        canBoostGankedWhilePushing
           ? []
-          : ["라인 푸시, 전진 위치, 사망, 정글 개입 근거가 아직 부족함"],
+          : hasSoloDuelContext(contextText)
+            ? [
+                "라인이 실제로 밀고 있었는지 추가 확인 필요",
+                "상대 정글이 실제로 개입했는지 추가 확인 필요",
+              ]
+            : ["라인 푸시, 전진 위치, 사망, 정글 개입 근거가 아직 부족함"],
       reasonKo:
-        gankBoosters.length > 0
+        canBoostGankedWhilePushing
           ? "시야와 정글 정보가 없는 상태에 푸시/전진 또는 사망 근거가 붙어 갱킹 후보 신뢰도가 올라갑니다."
-          : "시야와 정글 정보가 없지만 푸시 중 갱킹으로 확정할 추가 근거는 아직 부족합니다.",
+          : "강가 시야와 상대 정글 정보가 부족해 갱킹 위험 후보로 볼 수 있지만, 실제 푸시/전진 자세 또는 정글 개입 여부는 추가 확인이 필요합니다.",
     });
   }
 
@@ -310,7 +393,9 @@ export function mapEvidenceToSceneCandidates(
     riskTagSet.has("FOUGHT_WITHOUT_ALLY_COVER") &&
     riskTagSet.has("ENEMY_SUPPORT_ROAM_WINDOW")
   ) {
-    const supportBoosted = hasSupportInvolvement(contextText);
+    const supportBoosted =
+      hasSupportInvolvement(contextText) ||
+      riskTagSet.has("ALLY_SUPPORT_CANNOT_MOVE");
     addOrMergeCandidate(candidates, {
       scenarioId: "enemy_support_roam_collapse",
       confidence: supportBoosted ? "high" : "medium",
@@ -369,21 +454,39 @@ export function mapEvidenceToSceneCandidates(
     "POST_KILL_ESCAPE_RISK",
     "NO_ESCAPE_PLAN",
     "MISSED_ALTERNATIVE_GAIN",
+    "UNTRACKED_PUSH",
   ].filter((tag) => riskTagSet.has(tag));
   const hasPostKillRisk =
     riskTagSet.has("POST_KILL_ESCAPE_RISK") || riskTagSet.has("NO_ESCAPE_PLAN");
+  const hasConservativePostKillConversionSignal =
+    hasKillOrAdvantage &&
+    hasPostKillConversionContext(contextText) &&
+    (hasPostKillRisk ||
+      riskTagSet.has("UNTRACKED_PUSH") ||
+      riskTagSet.has("NO_RIVER_VISION") ||
+      riskTagSet.has("ENEMY_JUNGLER_UNKNOWN"));
 
-  if (poorConversionRiskTags.length > 0 && hasKillOrAdvantage) {
+  if (
+    (poorConversionRiskTags.length > 0 && hasKillOrAdvantage && hasPostKillRisk) ||
+    hasConservativePostKillConversionSignal
+  ) {
     addOrMergeCandidate(candidates, {
       scenarioId: "successful_solo_kill_poor_conversion",
       confidence: hasPostKillRisk ? "medium" : "medium",
       matchedRiskTags: poorConversionRiskTags,
-      boostingEvidence: ["킬 또는 실제 이득 선행 정황"],
+      boostingEvidence: [
+        "킬 또는 실제 이득 선행 정황",
+        ...(hasPostKillConversionContext(contextText)
+          ? ["킬 이후 웨이브/리콜/가치 전환 문맥"]
+          : []),
+      ],
       limitingFactors: hasPostKillRisk
         ? ["candidate confidence type은 medium-high를 지원하지 않아 medium으로 보관함"]
-        : [],
+        : [
+            "실제 웨이브 크래시 여부와 귀환/플레이트 선택은 영상 또는 Riot 근거로 추가 확인 필요",
+          ],
       reasonKo:
-        "킬 또는 실제 이득 이후 전환/탈출 리스크가 있어 낮은 이득 전환 후보로 봅니다.",
+        "솔로킬 이후 체력/웨이브/정글 정보가 불안정한 상태에서 이득 전환이 흔들린 정황이 있어, 킬 이후 가치 전환 후보로 봅니다.",
     });
   } else if (riskTagSet.has("MISSED_ALTERNATIVE_GAIN")) {
     notes.push(

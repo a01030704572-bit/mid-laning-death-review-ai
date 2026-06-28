@@ -103,6 +103,63 @@ test("ganked while pushing is boosted by push and death context", () => {
   assert.ok(candidate.boostingEvidence.length > 0);
 });
 
+test("solo kill duel death does not over-boost ganked while pushing without push or gank evidence", () => {
+  const result = mapEvidenceToSceneCandidates({
+    riskTags: [
+      "NO_RIVER_VISION",
+      "ENEMY_JUNGLER_UNKNOWN",
+      "NO_FLASH_WINDOW",
+      "NO_ESCAPE_TOOL",
+      "LOW_HP_STAY",
+      "COOLDOWN_DISRESPECT",
+    ],
+    scenarioType: "solo_kill",
+    currentOutcome: "death",
+    evidenceSummary: ["1:1 duel death with low hp and no flash"],
+  });
+
+  assert.equal(
+    findCandidate(result, "fight_with_unknown_enemy_jungler").confidence,
+    "high"
+  );
+  assert.equal(
+    findCandidate(result, "fight_without_flash_or_escape").confidence,
+    "high"
+  );
+
+  const gankCandidate = findCandidate(result, "ganked_while_pushing");
+  assert.notEqual(gankCandidate.confidence, "high");
+  assert.ok(
+    gankCandidate.limitingFactors.some((item) =>
+      item.includes("라인이 실제로 밀고 있었는지")
+    )
+  );
+  assert.ok(
+    gankCandidate.limitingFactors.some((item) =>
+      item.includes("상대 정글이 실제로 개입했는지")
+    )
+  );
+});
+
+test("true pushed gank boosts ganked while pushing to high", () => {
+  const result = mapEvidenceToSceneCandidates({
+    riskTags: [
+      "UNTRACKED_PUSH",
+      "NO_RIVER_VISION",
+      "ENEMY_JUNGLER_UNKNOWN",
+      "POSSIBLE_GANK_SETUP",
+      "NO_FLASH_WINDOW",
+    ],
+    scenarioType: "jungle_gank",
+    currentOutcome: "ganked_and_died",
+    evidenceSummary: ["pushed wave forward and enemy jungle gank happened"],
+  });
+
+  const candidate = findCandidate(result, "ganked_while_pushing");
+  assert.equal(candidate.confidence, "high");
+  assert.ok(candidate.boostingEvidence.length > 0);
+});
+
 test("support roam plus no ally cover maps to enemy support collapse", () => {
   const result = mapEvidenceToSceneCandidates({
     riskTags: ["FOUGHT_WITHOUT_ALLY_COVER", "ENEMY_SUPPORT_ROAM_WINDOW"],
@@ -111,6 +168,22 @@ test("support roam plus no ally cover maps to enemy support collapse", () => {
   assert.equal(
     findCandidate(result, "enemy_support_roam_collapse").confidence,
     "medium"
+  );
+});
+
+test("support roam collapse is high when ally support cannot move", () => {
+  const result = mapEvidenceToSceneCandidates({
+    riskTags: [
+      "FOUGHT_WITHOUT_ALLY_COVER",
+      "ENEMY_SUPPORT_ROAM_WINDOW",
+      "ALLY_SUPPORT_CANNOT_MOVE",
+      "NO_FLASH_WINDOW",
+    ],
+  });
+
+  assert.equal(
+    findCandidate(result, "enemy_support_roam_collapse").confidence,
+    "high"
   );
 });
 
@@ -181,6 +254,28 @@ test("POST_KILL_ESCAPE_RISK with kill context maps to poor conversion", () => {
   );
   assert.equal(candidate.confidence, "medium");
   assert.ok(candidate.boostingEvidence.some((item) => item.includes("킬")));
+});
+
+test("solo kill poor conversion is detected from post-kill wave and recall context", () => {
+  const result = mapEvidenceToSceneCandidates({
+    riskTags: ["UNTRACKED_PUSH", "NO_RIVER_VISION", "ENEMY_JUNGLER_UNKNOWN"],
+    currentOutcome: "solo_kill",
+    scenarioType: "post-gain operation",
+    evidenceSummary: [
+      "솔킬을 냈지만 체력이 낮은 상태로 라인에 오래 남았고 웨이브를 제대로 박지 못해 이득 전환이 흔들렸다",
+      "post kill wave crash and recall value conversion problem",
+    ],
+  });
+
+  const poorConversion = findCandidate(
+    result,
+    "successful_solo_kill_poor_conversion"
+  );
+  const gankCandidate = findCandidate(result, "ganked_while_pushing");
+
+  assert.equal(poorConversion.confidence, "medium");
+  assert.match(poorConversion.reasonKo, /솔로킬 이후|가치 전환/);
+  assert.notEqual(gankCandidate.confidence, "high");
 });
 
 test("objective and wave mapping rules create expected candidates", () => {
