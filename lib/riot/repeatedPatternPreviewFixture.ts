@@ -1,0 +1,315 @@
+import type {
+  AutoSceneCandidate,
+  AutoSceneConfidence,
+  AutoSceneType,
+  PlayerTierGroup,
+} from "@/types/autoScene";
+import { analyzeSimilarSceneGroups } from "@/lib/riot/eliminationPatternAnalyzer";
+import { groupSimilarAutoScenes } from "@/lib/riot/similarSceneGrouping";
+
+type PreviewCandidateInput = {
+  id: string;
+  matchId: string;
+  gameTimeSec: number;
+  type: AutoSceneType;
+  titleKo: string;
+  reasonKo: string;
+  riskTagSeeds: string[];
+  sceneCandidateSeeds: string[];
+  missingInfo: string[];
+  championName: string;
+  opponentChampionName: string;
+  confidence?: AutoSceneConfidence;
+};
+
+function previewCandidate(input: PreviewCandidateInput): AutoSceneCandidate {
+  return {
+    id: input.id,
+    matchId: input.matchId,
+    gameTimeSec: input.gameTimeSec,
+    type: input.type,
+    titleKo: input.titleKo,
+    confidence: input.confidence ?? "medium",
+    reasonKo: input.reasonKo,
+    evidence: [
+      {
+        source: "riot_timeline",
+        certainty: "inferred_from_timeline",
+        eventTimeSec: input.gameTimeSec,
+        timeWindowSec: {
+          startSec: Math.max(0, input.gameTimeSec - 15),
+          endSec: input.gameTimeSec + 60,
+        },
+        eventTypes: ["CHAMPION_KILL", "FRAME_DELTA"],
+        summaryKo:
+          "Riot timeline 샘플 이벤트로 만든 반복 패턴 Preview 근거입니다.",
+      },
+    ],
+    riskTagSeeds: input.riskTagSeeds,
+    sceneCandidateSeeds: input.sceneCandidateSeeds,
+    missingInfo: input.missingInfo,
+    reviewSeed: {
+      source: "riot_auto_scene",
+      currentOutcome: "death_or_low_conversion",
+      primaryCause: input.sceneCandidateSeeds[0],
+      scenarioType: input.sceneCandidateSeeds[0],
+      noteKo: input.reasonKo,
+      championName: input.championName,
+      opponentChampionName: input.opponentChampionName,
+      timeWindowSec: {
+        startSec: Math.max(0, input.gameTimeSec - 15),
+        endSec: input.gameTimeSec + 60,
+      },
+    },
+  };
+}
+
+function buildPreviewCandidates(): AutoSceneCandidate[] {
+  return [
+    previewCandidate({
+      id: "preview-push-gank-1",
+      matchId: "PREVIEW_001",
+      gameTimeSec: 515,
+      type: "jungle_gank_death_candidate",
+      titleKo: "미드 푸시 중 정글 개입 후보",
+      reasonKo: "라인을 앞으로 밀던 중 적 정글 위치 확인 없이 사망한 샘플입니다.",
+      riskTagSeeds: ["NO_RIVER_VISION", "ENEMY_JUNGLER_UNKNOWN", "UNTRACKED_PUSH"],
+      sceneCandidateSeeds: ["ganked_while_pushing"],
+      missingInfo: ["actual wave crash state", "actual vision state"],
+      championName: "Ahri",
+      opponentChampionName: "Syndra",
+    }),
+    previewCandidate({
+      id: "preview-push-gank-2",
+      matchId: "PREVIEW_002",
+      gameTimeSec: 690,
+      type: "death_review_candidate",
+      titleKo: "강가 시야 없이 전진한 사망 후보",
+      reasonKo: "강가 시야와 적 정글 위치가 불확실한 상태에서 전진한 샘플입니다.",
+      riskTagSeeds: ["NO_RIVER_VISION", "ENEMY_JUNGLER_UNKNOWN", "POSSIBLE_GANK_SETUP"],
+      sceneCandidateSeeds: ["ganked_while_pushing"],
+      missingInfo: ["depth of positioning", "jungle tracking confirmation"],
+      championName: "Orianna",
+      opponentChampionName: "Yasuo",
+    }),
+    previewCandidate({
+      id: "preview-push-gank-3",
+      matchId: "PREVIEW_003",
+      gameTimeSec: 875,
+      type: "jungle_gank_death_candidate",
+      titleKo: "시야 없는 라인 압박 사망 후보",
+      reasonKo: "정글 위치 확인 전 라인 압박이 이어진 샘플입니다.",
+      riskTagSeeds: ["NO_RIVER_VISION", "ENEMY_JUNGLER_UNKNOWN", "UNTRACKED_PUSH"],
+      sceneCandidateSeeds: ["fight_with_unknown_enemy_jungler"],
+      missingInfo: ["actual vision state", "forward position confirmation"],
+      championName: "Viktor",
+      opponentChampionName: "Akali",
+    }),
+    previewCandidate({
+      id: "preview-push-gank-4",
+      matchId: "PREVIEW_004",
+      gameTimeSec: 1040,
+      type: "death_review_candidate",
+      titleKo: "정글 미확인 교전 후보",
+      reasonKo: "적 정글 개입 가능성이 남아 있는 상태에서 교전한 샘플입니다.",
+      riskTagSeeds: ["NO_RIVER_VISION", "ENEMY_JUNGLER_UNKNOWN"],
+      sceneCandidateSeeds: ["fight_with_unknown_enemy_jungler"],
+      missingInfo: ["jungle involvement evidence", "actual wave crash state"],
+      championName: "Taliyah",
+      opponentChampionName: "LeBlanc",
+    }),
+    previewCandidate({
+      id: "preview-no-flash-1",
+      matchId: "PREVIEW_005",
+      gameTimeSec: 620,
+      type: "no_flash_fight_candidate",
+      titleKo: "플래시 없는 교전 후보",
+      reasonKo: "플래시가 없는 상태에서 교전이 열린 샘플입니다.",
+      riskTagSeeds: ["NO_FLASH_WINDOW", "NO_ESCAPE_TOOL"],
+      sceneCandidateSeeds: ["fight_without_flash_or_escape"],
+      missingInfo: ["fight direction", "ally cover"],
+      championName: "Ahri",
+      opponentChampionName: "Sylas",
+    }),
+    previewCandidate({
+      id: "preview-no-flash-2",
+      matchId: "PREVIEW_006",
+      gameTimeSec: 760,
+      type: "death_review_candidate",
+      titleKo: "탈출기 없는 맞교전 후보",
+      reasonKo: "생존 수단이 제한된 상태에서 맞교전한 샘플입니다.",
+      riskTagSeeds: ["NO_FLASH_WINDOW"],
+      sceneCandidateSeeds: ["fight_without_flash_or_escape"],
+      missingInfo: ["cooldown use context", "depth of positioning"],
+      championName: "Orianna",
+      opponentChampionName: "Irelia",
+    }),
+    previewCandidate({
+      id: "preview-no-flash-3",
+      matchId: "PREVIEW_007",
+      gameTimeSec: 980,
+      type: "no_flash_fight_candidate",
+      titleKo: "생존기 없는 추격 후보",
+      reasonKo: "도주 수단이 없는 상태에서 추격을 이어간 샘플입니다.",
+      riskTagSeeds: ["NO_ESCAPE_TOOL", "LOW_HP_STAY"],
+      sceneCandidateSeeds: ["fight_without_flash_or_escape"],
+      missingInfo: ["fight direction", "camera/minimap awareness"],
+      championName: "Vex",
+      opponentChampionName: "Katarina",
+    }),
+    previewCandidate({
+      id: "preview-no-flash-4",
+      matchId: "PREVIEW_008",
+      gameTimeSec: 1185,
+      type: "no_flash_fight_candidate",
+      titleKo: "플래시 쿨다운 중 교전 후보",
+      reasonKo: "플래시 쿨다운 중 먼저 교전각을 본 샘플입니다.",
+      riskTagSeeds: ["NO_FLASH_WINDOW", "NO_ESCAPE_TOOL"],
+      sceneCandidateSeeds: ["fight_without_flash_or_escape"],
+      missingInfo: ["ally cover", "trade condition"],
+      championName: "Azir",
+      opponentChampionName: "Yone",
+    }),
+    previewCandidate({
+      id: "preview-conversion-1",
+      matchId: "PREVIEW_009",
+      gameTimeSec: 705,
+      type: "post_kill_conversion_candidate",
+      titleKo: "솔로킬 이후 전환 흔들림 후보",
+      reasonKo: "킬 이후 웨이브, 리콜, 플레이트 중 다음 이득 전환이 불명확한 샘플입니다.",
+      riskTagSeeds: ["POST_KILL_ESCAPE_RISK", "NO_ESCAPE_PLAN"],
+      sceneCandidateSeeds: ["successful_solo_kill_poor_conversion"],
+      missingInfo: ["post kill wave recall conversion", "plate timing"],
+      championName: "Akali",
+      opponentChampionName: "Syndra",
+    }),
+    previewCandidate({
+      id: "preview-conversion-2",
+      matchId: "PREVIEW_010",
+      gameTimeSec: 845,
+      type: "post_kill_conversion_candidate",
+      titleKo: "킬 이후 리콜 지연 후보",
+      reasonKo: "킬 이후 남은 체력과 웨이브 상태를 확인해야 하는 샘플입니다.",
+      riskTagSeeds: ["POST_KILL_ESCAPE_RISK"],
+      sceneCandidateSeeds: ["successful_solo_kill_poor_conversion"],
+      missingInfo: ["post kill recall", "actual wave crash state"],
+      championName: "LeBlanc",
+      opponentChampionName: "Orianna",
+    }),
+    previewCandidate({
+      id: "preview-conversion-3",
+      matchId: "PREVIEW_011",
+      gameTimeSec: 1025,
+      type: "post_kill_conversion_candidate",
+      titleKo: "킬 이후 플레이트 욕심 후보",
+      reasonKo: "킬 이후 추가 골드 전환과 생존 리스크를 함께 봐야 하는 샘플입니다.",
+      riskTagSeeds: ["POST_KILL_ESCAPE_RISK", "PLATE_GREED_WITHOUT_JUNGLE_COVER"],
+      sceneCandidateSeeds: ["successful_solo_kill_poor_conversion"],
+      missingInfo: ["post kill plate conversion", "jungle cover"],
+      championName: "Qiyana",
+      opponentChampionName: "Viktor",
+    }),
+    previewCandidate({
+      id: "preview-conversion-4",
+      matchId: "PREVIEW_012",
+      gameTimeSec: 1210,
+      type: "post_kill_conversion_candidate",
+      titleKo: "킬 이후 템포 손실 후보",
+      reasonKo: "킬 이후 웨이브 정리와 리콜 타이밍이 늦어진 샘플입니다.",
+      riskTagSeeds: ["NO_ESCAPE_PLAN", "RECALL_GREED"],
+      sceneCandidateSeeds: ["successful_solo_kill_poor_conversion"],
+      missingInfo: ["post kill tempo", "recall timing"],
+      championName: "Syndra",
+      opponentChampionName: "Ahri",
+    }),
+    previewCandidate({
+      id: "preview-objective-1",
+      matchId: "PREVIEW_013",
+      gameTimeSec: 920,
+      type: "objective_setup_failure_candidate",
+      titleKo: "오브젝트 전 준비 턴 손실 후보",
+      reasonKo: "드래곤 전 미드 라인과 리콜 타이밍을 확인해야 하는 샘플입니다.",
+      riskTagSeeds: ["OBJECTIVE_TRADEOFF_MISREAD", "BAD_RECALL_BEFORE_OBJECTIVE"],
+      sceneCandidateSeeds: ["objective_trade_decision"],
+      missingInfo: ["dragon objective setup", "recall timing"],
+      championName: "Orianna",
+      opponentChampionName: "Taliyah",
+    }),
+    previewCandidate({
+      id: "preview-objective-herald-1",
+      matchId: "PREVIEW_013B",
+      gameTimeSec: 930,
+      type: "death_review_candidate",
+      titleKo: "전령 타이밍 전 미드 턴 후보",
+      reasonKo: "herald timing 전후로 미드 턴 선택을 확인해야 하는 샘플입니다.",
+      riskTagSeeds: ["TIMING_WINDOW_CHECK"],
+      sceneCandidateSeeds: ["herald_timing_review"],
+      missingInfo: ["herald timing", "tempo trade"],
+      championName: "Ahri",
+      opponentChampionName: "Vex",
+    }),
+    previewCandidate({
+      id: "preview-objective-herald-2",
+      matchId: "PREVIEW_013C",
+      gameTimeSec: 940,
+      type: "death_review_candidate",
+      titleKo: "전령 타이밍 합류 후보",
+      reasonKo: "herald timing 근처 합류와 라인 선택을 확인해야 하는 샘플입니다.",
+      riskTagSeeds: ["TIMING_WINDOW_CHECK"],
+      sceneCandidateSeeds: ["herald_timing_review"],
+      missingInfo: ["herald timing", "lane tempo"],
+      championName: "Syndra",
+      opponentChampionName: "Orianna",
+    }),
+    previewCandidate({
+      id: "preview-objective-2",
+      matchId: "PREVIEW_014",
+      gameTimeSec: 1090,
+      type: "objective_setup_failure_candidate",
+      titleKo: "오브젝트 전 사망 후보",
+      reasonKo: "오브젝트 전 체력과 시야 상태가 불안정했던 샘플입니다.",
+      riskTagSeeds: ["STAYED_LOW_RESOURCE_BEFORE_OBJECTIVE"],
+      sceneCandidateSeeds: ["death_before_objective"],
+      missingInfo: ["objective setup", "actual vision state"],
+      championName: "Viktor",
+      opponentChampionName: "Akali",
+    }),
+    previewCandidate({
+      id: "preview-objective-3",
+      matchId: "PREVIEW_015",
+      gameTimeSec: 1280,
+      type: "objective_setup_failure_candidate",
+      titleKo: "바론 전 미드 턴 손실 후보",
+      reasonKo: "바론 전 라인 주도권과 합류 타이밍을 확인해야 하는 샘플입니다.",
+      riskTagSeeds: ["OBJECTIVE_TRADEOFF_MISREAD", "MISSED_ALTERNATIVE_GAIN"],
+      sceneCandidateSeeds: ["objective_trade_decision"],
+      missingInfo: ["baron objective setup", "tempo trade"],
+      championName: "Azir",
+      opponentChampionName: "Yone",
+    }),
+    previewCandidate({
+      id: "preview-objective-4",
+      matchId: "PREVIEW_016",
+      gameTimeSec: 1425,
+      type: "objective_setup_failure_candidate",
+      titleKo: "오브젝트 전 리콜 판단 후보",
+      reasonKo: "오브젝트 전 귀환과 라인 정리 순서를 확인해야 하는 샘플입니다.",
+      riskTagSeeds: ["BAD_RECALL_BEFORE_OBJECTIVE", "OBJECTIVE_TRADEOFF_MISREAD"],
+      sceneCandidateSeeds: ["bad_recall_before_objective"],
+      missingInfo: ["objective setup 60 seconds", "recall optimization"],
+      championName: "Ahri",
+      opponentChampionName: "Syndra",
+    }),
+  ];
+}
+
+export function buildRepeatedPatternPreviewResults(
+  tierGroup: PlayerTierGroup = "gold_platinum"
+) {
+  const groups = groupSimilarAutoScenes(buildPreviewCandidates(), {
+    minScenesPerGroup: 2,
+    maxScenesPerGroup: 5,
+  });
+
+  return analyzeSimilarSceneGroups(groups, tierGroup);
+}

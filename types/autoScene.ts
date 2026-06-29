@@ -238,9 +238,14 @@ export type EliminatedFactor = {
 };
 
 export type EliminationPatternResult = {
+  id: string;
   groupId: string;
+  groupType: AutoSceneGroupType;
+  tierGroup: PlayerTierGroup;
+  sceneCount: number;
   primaryPatternKo: string;
   confidence: AutoSceneConfidence;
+  repeatedFactors: TierAdjustedPatternSignal[];
   commonFactors: Array<{
     labelKo: string;
     sceneCount: number;
@@ -249,8 +254,11 @@ export type EliminationPatternResult = {
   }>;
   eliminatedFactors: EliminatedFactor[];
   nextGameGoalKo: string;
+  evidenceRequirement: TierEvidenceRequirement;
+  cautionKo: string;
   reviewNoteKo: string;
   trackingMetricKo?: string;
+  source: "similar_scene_grouping";
 };
 
 export const AUTO_SCENE_TYPES = [

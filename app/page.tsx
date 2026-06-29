@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import DeathReviewForm from "@/components/DeathReviewForm";
 import ReviewResultCard from "@/components/ReviewResultCard";
 import EvidenceMetadataPreview from "@/components/EvidenceMetadataPreview";
-import RecentHabitPatternCard from "@/components/RecentHabitPatternCard";
+import ReviewInsightPanel from "@/components/ReviewInsightPanel";
 import VideoDraftPanel from "@/components/VideoDraftPanel";
 import RiotEvidencePanel from "@/components/RiotEvidencePanel";
 import { ReviewResult, RiskTag, ScenarioType } from "@/types/review";
@@ -12,12 +12,10 @@ import type { ReviewSceneCompletion } from "@/types/history";
 import type { ReviewEvidenceMetadata } from "@/types/evidence";
 import type { VideoReviewDraft } from "@/types/videoDraft";
 import {
-  clearReviewSceneHistory,
   createReviewSceneRecord,
-  loadReviewSceneHistory,
   saveReviewSceneRecord,
 } from "@/lib/reviewHistory";
-import { analyzeHabitPatterns } from "@/lib/habitPatternAnalyzer";
+import { buildRepeatedPatternPreviewResults } from "@/lib/riot/repeatedPatternPreviewFixture";
 
 export default function Home() {
   const [reviewData, setReviewData] = useState<{
@@ -26,18 +24,9 @@ export default function Home() {
     result: ReviewResult;
     evidenceMetadata?: ReviewEvidenceMetadata;
   } | null>(null);
-  const [habitAnalysis, setHabitAnalysis] = useState(() =>
-    analyzeHabitPatterns([])
-  );
   const [videoDraft, setVideoDraft] = useState<VideoReviewDraft | null>(null);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setHabitAnalysis(analyzeHabitPatterns(loadReviewSceneHistory()));
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, []);
+  const repeatedPatternPreviewResults =
+    buildRepeatedPatternPreviewResults("gold_platinum");
 
   function handleReviewResult(completion: ReviewSceneCompletion) {
     setReviewData({
@@ -51,14 +40,7 @@ export default function Home() {
       createReviewSceneRecord(completion)
     );
     if (savedHistory) {
-      setHabitAnalysis(analyzeHabitPatterns(savedHistory));
-    }
-  }
-
-  function handleResetHistory() {
-    if (!window.confirm("저장된 복기 장면 기록을 초기화할까요?")) return;
-    if (clearReviewSceneHistory()) {
-      setHabitAnalysis(analyzeHabitPatterns([]));
+      window.dispatchEvent(new Event("review-history-updated"));
     }
   }
 
@@ -75,11 +57,10 @@ export default function Home() {
           </h1>
 
           <p className="max-w-3xl text-zinc-600">
-            미드 라인전에서 죽음, 손해, 솔킬, 라인 주도권, CS/플레이트 이득
-            같은 상황을 입력하면 가능한 Risk Tag와 1:1 코칭 피드백을
-            생성합니다. 이 앱은 정답을 단정하지 않고, 플레이어가 자신의
-            판단 흐름을 복기하고 다음 판 행동 목표를 세우도록 돕는 것을
-            목표로 합니다.
+            미드 라인에서 발생한 죽음, 손해, 로밍, 라인 주도권, CS/플레이트 이득
+            같은 장면을 입력하면 가능한 Risk Tag와 1:1 코칭 피드백을 생성합니다.
+            이 도구는 정답을 확정하지 않고, 플레이어가 자신의 판단 흐름을 복기하고
+            다음 게임 행동 목표를 세우도록 돕는 것을 목표로 합니다.
           </p>
         </header>
 
@@ -110,12 +91,12 @@ export default function Home() {
                 </div>
               </div>
             )}
-            <RecentHabitPatternCard
-              analysis={habitAnalysis}
-              onResetHistory={handleResetHistory}
-            />
           </div>
         </div>
+
+        <ReviewInsightPanel
+          repeatedPatternPreviewResults={repeatedPatternPreviewResults}
+        />
       </div>
     </main>
   );
