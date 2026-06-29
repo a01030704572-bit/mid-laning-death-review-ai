@@ -45,6 +45,75 @@ export type AutoScenePosition = {
   y: number;
 };
 
+export type RiotTeamId = 100 | 200;
+
+export type ParticipantSide = "ally" | "enemy" | "unknown";
+
+export type ParticipantRole =
+  | "TOP"
+  | "JUNGLE"
+  | "MIDDLE"
+  | "BOTTOM"
+  | "UTILITY"
+  | "UNKNOWN";
+
+export type ObjectiveIdentityType =
+  | "dragon"
+  | "elder_dragon"
+  | "void_grub"
+  | "rift_herald"
+  | "baron"
+  | "unknown";
+
+export type RiotParticipantIdentity = {
+  participantId: number;
+  teamId?: number;
+  side: ParticipantSide;
+  championName?: string;
+  puuid?: string;
+  role: ParticipantRole;
+  teamPosition?: string;
+  individualPosition?: string;
+  lane?: string;
+  rawRole?: string;
+  summonerName?: string;
+  riotIdGameName?: string;
+  riotIdTagline?: string;
+  isTarget: boolean;
+};
+
+export type RiotObjectiveIdentity = {
+  objectiveType: ObjectiveIdentityType;
+  eventTimeSec: number;
+  killerId?: number;
+  killerTeamId?: number;
+  monsterType?: string;
+  monsterSubType?: string;
+  position?: AutoScenePosition;
+  source: "riot_timeline";
+  certainty: "confirmed_by_riot" | "inferred_from_timeline";
+  summaryKo: string;
+};
+
+export type RiotIdentityContext = {
+  matchId: string;
+  targetParticipantId: number;
+  targetTeamId?: number;
+  target?: RiotParticipantIdentity;
+  participants: RiotParticipantIdentity[];
+  allies: RiotParticipantIdentity[];
+  enemies: RiotParticipantIdentity[];
+  participantsById: Record<number, RiotParticipantIdentity>;
+  allyMid?: RiotParticipantIdentity;
+  enemyMid?: RiotParticipantIdentity;
+  allyJungler?: RiotParticipantIdentity;
+  enemyJungler?: RiotParticipantIdentity;
+  allySupport?: RiotParticipantIdentity;
+  enemySupport?: RiotParticipantIdentity;
+  objectives: RiotObjectiveIdentity[];
+  missingInfo: string[];
+};
+
 export type AutoSceneTimeWindow = {
   startSec: number;
   endSec: number;
