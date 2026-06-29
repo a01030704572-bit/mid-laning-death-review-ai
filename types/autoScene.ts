@@ -40,6 +40,24 @@ export type AutoSceneEvidenceCertainty =
   | "confirmed_by_user"
   | "needs_video_or_user_confirmation";
 
+export type PlayerTierGroup =
+  | "iron_silver"
+  | "gold_platinum"
+  | "emerald_diamond"
+  | "master_plus";
+
+export type TierNextGameGoalStyle =
+  | "basic_survival"
+  | "conditional_decision"
+  | "tempo_and_cover"
+  | "optimization";
+
+export type TierEvidenceRequirement =
+  | "riot_only_ok"
+  | "video_recommended"
+  | "video_required"
+  | "user_confirmation_required";
+
 export type AutoScenePosition = {
   x: number;
   y: number;
@@ -172,6 +190,44 @@ export type SimilarSceneGroup = {
   scenes: AutoSceneCandidate[];
   commonFactors: SimilarSceneCommonFactor[];
   variableFactors: string[];
+};
+
+export type TierAwarePatternCriteria = {
+  tierGroup: PlayerTierGroup;
+  groupType: AutoSceneGroupType;
+  priorityFactors: string[];
+  avoidOverCoaching: string[];
+  nextGameGoalStyle: TierNextGameGoalStyle;
+  riotOnlySignals: string[];
+  videoRequiredSignals: string[];
+  userConfirmationQuestions: string[];
+  evidenceRequirement: TierEvidenceRequirement;
+  cautionKo: string;
+};
+
+export type TierConfidenceRule = {
+  tierGroup: PlayerTierGroup;
+  strongThreshold: number;
+  mediumThreshold: number;
+  weakThresholdMax: number;
+  highConfidenceRequires: string[];
+  mediumConfidenceAllows: string[];
+  cautionKo: string;
+};
+
+export type TierNextGameGoalTemplate = {
+  tierGroup: PlayerTierGroup;
+  groupType: AutoSceneGroupType;
+  style: TierNextGameGoalStyle;
+  templateKo: string;
+};
+
+export type TierAdjustedPatternSignal = {
+  factorLabelKo: string;
+  tierPriority: number;
+  adjustedConfidence: AutoSceneConfidence;
+  evidenceRequirement: TierEvidenceRequirement;
+  reasonKo: string;
 };
 
 export type EliminatedFactor = {
