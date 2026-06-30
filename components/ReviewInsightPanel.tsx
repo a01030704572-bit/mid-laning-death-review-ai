@@ -3,41 +3,23 @@
 import { useEffect, useState } from "react";
 import RecentHabitPatternCard from "@/components/RecentHabitPatternCard";
 import RepeatedPatternPreviewCard from "@/components/RepeatedPatternPreviewCard";
-import type {
-  AutoSceneGroupType,
-  EliminationPatternResult,
-} from "@/types/autoScene";
+import type { EliminationPatternResult } from "@/types/autoScene";
 import {
   clearReviewSceneHistory,
   loadReviewSceneHistory,
 } from "@/lib/reviewHistory";
 import { analyzeHabitPatterns } from "@/lib/habitPatternAnalyzer";
+import {
+  buildReviewInsightSummary,
+  mapHabitPatternsToReviewInsightManualPatterns,
+} from "@/lib/reviewInsightSummary";
 
 type ReviewInsightPanelProps = {
   repeatedPatternPreviewResults: EliminationPatternResult[];
 };
 
-const NEXT_GAME_GOAL =
-  "상대 정글 위치가 확인되기 전까지 시야 없는 쪽으로 압박하지 않기.";
-
-const SUPPORTING_PATTERN_LABELS: Partial<Record<AutoSceneGroupType, string>> = {
-  no_flash_fight_like: "점멸 없는 교전",
-  solo_kill_conversion_like: "솔킬 후 전환",
-  objective_setup_like: "오브젝트 전 준비",
-};
-
-const SUPPORTING_PATTERN_ORDER: AutoSceneGroupType[] = [
-  "no_flash_fight_like",
-  "solo_kill_conversion_like",
-  "objective_setup_like",
-];
-
 function loadHabitAnalysis() {
   return analyzeHabitPatterns(loadReviewSceneHistory());
-}
-
-function supportingPatternLabel(result: EliminationPatternResult) {
-  return SUPPORTING_PATTERN_LABELS[result.groupType] ?? result.primaryPatternKo;
 }
 
 export default function ReviewInsightPanel({
@@ -46,14 +28,16 @@ export default function ReviewInsightPanel({
   const [habitAnalysis, setHabitAnalysis] = useState(() =>
     analyzeHabitPatterns([])
   );
-  const primaryResultId = repeatedPatternPreviewResults[0]?.id;
-  const supportingPatterns = SUPPORTING_PATTERN_ORDER.flatMap((groupType) => {
-    const result = repeatedPatternPreviewResults.find(
-      (candidate) =>
-        candidate.groupType === groupType && candidate.id !== primaryResultId
-    );
-    return result ? [result] : [];
-  }).slice(0, 3);
+  const insightSummary = buildReviewInsightSummary({
+    manualPatterns: mapHabitPatternsToReviewInsightManualPatterns(habitAnalysis),
+    automationResults: repeatedPatternPreviewResults,
+  });
+  const insightSourceLabel =
+    insightSummary.source === "combined"
+      ? "수동 기록 + 자동화 샘플"
+      : insightSummary.source === "manual_history"
+        ? "수동 기록 기반"
+        : "자동화 샘플 기반";
 
   useEffect(() => {
     function refreshHabitAnalysis() {
@@ -80,7 +64,7 @@ export default function ReviewInsightPanel({
     <section className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-zinc-950">복기 인사이트</h2>
+          <h2 className="text-xl font-bold text-zinc-950">오늘의 복기 인사이트</h2>
           <p className="mt-1 text-sm text-zinc-500">
             최근 복기 기록과 자동화 분석 샘플을 종합한 핵심 교정 후보입니다.
           </p>
@@ -105,8 +89,11 @@ export default function ReviewInsightPanel({
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
               이번에 가장 먼저 고칠 습관
             </p>
+            <p className="mt-2 inline-flex rounded-full border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-500">
+              {insightSourceLabel}
+            </p>
             <h3 className="mt-2 text-lg font-bold text-zinc-950">
-              강가/정글 위치 확인 없이 압박하는 판단
+              {insightSummary.primaryHabitKo}
             </h3>
 
             <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-3">
@@ -114,9 +101,7 @@ export default function ReviewInsightPanel({
                 왜 이게 먼저인가요?
               </p>
               <p className="mt-1 text-sm leading-6 text-zinc-700">
-                최근 수동 복기에서는 강가 시야/정글 위치 문제가 반복됐고,
-                자동화 샘플에서도 푸시 중 정글 개입 후보가 가장 강하게
-                잡혔습니다.
+                {insightSummary.whyThisFirstKo}
               </p>
             </div>
           </div>
@@ -126,23 +111,23 @@ export default function ReviewInsightPanel({
               다음 판 1개 목표
             </p>
             <p className="mt-2 text-sm leading-6 text-emerald-950">
-              {NEXT_GAME_GOAL}
+              {insightSummary.nextGameGoalKo}
             </p>
           </div>
         </div>
 
-        {supportingPatterns.length > 0 && (
+        {insightSummary.supportingCandidatesKo.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-zinc-500">
               같이 확인할 후보
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {supportingPatterns.map((result) => (
+              {insightSummary.supportingCandidatesKo.map((candidate) => (
                 <span
-                  key={result.id}
+                  key={candidate}
                   className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-600"
                 >
-                  {supportingPatternLabel(result)}
+                  {candidate}
                 </span>
               ))}
             </div>
@@ -151,14 +136,13 @@ export default function ReviewInsightPanel({
       </div>
 
       <p className="text-xs leading-5 text-zinc-500">
-        자동화 분석은 아직 샘플 Preview이며, 실제 경기 분석은 Riot/영상 연결
-        이후 적용됩니다.
+        {insightSummary.cautionKo}
       </p>
 
       <details className="group rounded-2xl border border-zinc-200 bg-white">
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-900 marker:hidden">
           <span className="inline-flex items-center gap-2">
-            상세 근거 보기
+            상세 분석 보기
             <span className="text-xs font-medium text-zinc-400 group-open:hidden">
               펼치기
             </span>

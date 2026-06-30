@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import CoachingDashboardLayout from "@/components/CoachingDashboardLayout";
 import DeathReviewForm from "@/components/DeathReviewForm";
-import ReviewResultCard from "@/components/ReviewResultCard";
 import EvidenceMetadataPreview from "@/components/EvidenceMetadataPreview";
 import ReviewInsightPanel from "@/components/ReviewInsightPanel";
-import VideoDraftPanel from "@/components/VideoDraftPanel";
+import ReviewResultCard from "@/components/ReviewResultCard";
 import RiotEvidencePanel from "@/components/RiotEvidencePanel";
+import SceneReviewBuilder from "@/components/SceneReviewBuilder";
+import VideoDraftPanel from "@/components/VideoDraftPanel";
 import { ReviewResult, RiskTag, ScenarioType } from "@/types/review";
 import type { ReviewSceneCompletion } from "@/types/history";
 import type { ReviewEvidenceMetadata } from "@/types/evidence";
@@ -16,6 +18,10 @@ import {
   saveReviewSceneRecord,
 } from "@/lib/reviewHistory";
 import { buildRepeatedPatternPreviewResults } from "@/lib/riot/repeatedPatternPreviewFixture";
+import {
+  hasUsableVideoDraftPatch,
+  mapVideoDraftToReviewFormPatch,
+} from "@/lib/videoDraftToReviewFormPatch";
 
 export default function Home() {
   const [reviewData, setReviewData] = useState<{
@@ -25,8 +31,27 @@ export default function Home() {
     evidenceMetadata?: ReviewEvidenceMetadata;
   } | null>(null);
   const [videoDraft, setVideoDraft] = useState<VideoReviewDraft | null>(null);
+  const [isVideoDraftApplied, setIsVideoDraftApplied] = useState(false);
+  const [videoDraftPatchVersion, setVideoDraftPatchVersion] = useState(0);
+  const [hasRiotEvidence, setHasRiotEvidence] = useState(false);
   const repeatedPatternPreviewResults =
     buildRepeatedPatternPreviewResults("gold_platinum");
+  const videoDraftPatch = useMemo(
+    () => mapVideoDraftToReviewFormPatch(videoDraft),
+    [videoDraft]
+  );
+  const canApplyVideoDraftPatch = hasUsableVideoDraftPatch(videoDraftPatch);
+
+  function handleVideoDraftChange(nextVideoDraft: VideoReviewDraft | null) {
+    setVideoDraft(nextVideoDraft);
+    setIsVideoDraftApplied(false);
+  }
+
+  function handleApplyVideoDraftPatch() {
+    if (!canApplyVideoDraftPatch) return;
+    setVideoDraftPatchVersion((version) => version + 1);
+    setIsVideoDraftApplied(true);
+  }
 
   function handleReviewResult(completion: ReviewSceneCompletion) {
     setReviewData({
@@ -44,60 +69,63 @@ export default function Home() {
     }
   }
 
+  const resultPanel = reviewData ? (
+    <div className="space-y-4">
+      <ReviewResultCard
+        riskTags={reviewData.riskTags}
+        scenarioType={reviewData.scenarioType}
+        result={reviewData.result}
+      />
+      <EvidenceMetadataPreview evidenceMetadata={reviewData.evidenceMetadata} />
+    </div>
+  ) : (
+    <div className="flex min-h-96 items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-zinc-500 shadow-sm">
+      <div>
+        아직 코칭 리뷰 결과가 없습니다.
+        <br />
+        왼쪽 입력 폼을 작성하고 Coaching Review를 생성해보세요.
+      </div>
+    </div>
+  );
+
   return (
-    <main className="min-h-screen bg-zinc-50 px-6 py-10 text-zinc-950">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <header className="space-y-3">
-          <p className="text-sm font-medium text-zinc-500">
-            League of Legends 1:1 AI Coaching MVP
-          </p>
-
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Mid Laning Decision Review AI
-          </h1>
-
-          <p className="max-w-3xl text-zinc-600">
-            미드 라인에서 발생한 죽음, 손해, 로밍, 라인 주도권, CS/플레이트 이득
-            같은 장면을 입력하면 가능한 Risk Tag와 1:1 코칭 피드백을 생성합니다.
-            이 도구는 정답을 확정하지 않고, 플레이어가 자신의 판단 흐름을 복기하고
-            다음 게임 행동 목표를 세우도록 돕는 것을 목표로 합니다.
-          </p>
-        </header>
-
-        <VideoDraftPanel onDraftChange={setVideoDraft} />
-        <RiotEvidencePanel />
-
-        <div className="grid gap-8 lg:grid-cols-2">
-          <DeathReviewForm onResult={handleReviewResult} videoDraft={videoDraft} />
-
-          <div className="space-y-6">
-            {reviewData ? (
-              <>
-                <ReviewResultCard
-                  riskTags={reviewData.riskTags}
-                  scenarioType={reviewData.scenarioType}
-                  result={reviewData.result}
-                />
-                <EvidenceMetadataPreview
-                  evidenceMetadata={reviewData.evidenceMetadata}
-                />
-              </>
-            ) : (
-              <div className="flex min-h-96 items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-zinc-500">
-                <div>
-                  아직 코칭 리뷰 결과가 없습니다.
-                  <br />
-                  왼쪽 입력 폼을 작성하고 Coaching Review를 생성해보세요.
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
+    <CoachingDashboardLayout
+      insight={
         <ReviewInsightPanel
           repeatedPatternPreviewResults={repeatedPatternPreviewResults}
         />
-      </div>
-    </main>
+      }
+      sceneBuilder={
+        <SceneReviewBuilder
+          manualForm={
+            <DeathReviewForm
+              onResult={handleReviewResult}
+              videoDraft={videoDraft}
+              videoDraftPatch={videoDraftPatch}
+              videoDraftPatchVersion={videoDraftPatchVersion}
+            />
+          }
+          videoDraftPanel={
+            <VideoDraftPanel onDraftChange={handleVideoDraftChange} embedded />
+          }
+          riotEvidencePanel={
+            <RiotEvidencePanel
+              embedded
+              onEvidenceChange={setHasRiotEvidence}
+            />
+          }
+          sourceState={{
+            hasManualInput: true,
+            hasVideoDraft: Boolean(videoDraft),
+            isVideoDraftApplied,
+            hasRiotEvidence,
+            isRiotEvidenceConnected: false,
+          }}
+          canApplyVideoDraftPatch={canApplyVideoDraftPatch}
+          onApplyVideoDraftPatch={handleApplyVideoDraftPatch}
+        />
+      }
+      result={resultPanel}
+    />
   );
 }

@@ -13,6 +13,7 @@ import {
 
 type Props = {
   onDraftChange?: (draft: VideoReviewDraft | null) => void;
+  embedded?: boolean;
 };
 
 const SCENARIO_LABELS: Record<ScenarioType, string> = {
@@ -127,7 +128,10 @@ const FIELD_VALUE_LABELS: Record<string, string> = {
   escape_or_disengage: "이탈을 우선함",
 };
 
-export default function VideoDraftPanel({ onDraftChange }: Props) {
+export default function VideoDraftPanel({
+  onDraftChange,
+  embedded = false,
+}: Props) {
   const [clip, setClip] = useState<File | null>(null);
   const [note, setNote] = useState("");
   const [provider, setProvider] = useState<"gemini" | "openai">("gemini");
@@ -206,13 +210,21 @@ export default function VideoDraftPanel({ onDraftChange }: Props) {
     : [];
 
   return (
-    <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+    <section
+      className={
+        embedded
+          ? "space-y-4"
+          : "space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+      }
+    >
+      {!embedded && (
       <div>
-        <h2 className="text-lg font-bold text-zinc-950">영상에서 복기 입력값 추출</h2>
+        <h2 className="text-lg font-bold text-zinc-950">영상으로 입력값 초안 만들기</h2>
         <p className="mt-1 text-sm text-zinc-500">
           짧은 클립에서 기존 복기 폼에 사용할 장면 사실과 입력값 초안을 추출합니다. 최종 판단이나 코칭이 아니며, 내용을 직접 확인한 뒤 수동으로 사용하세요.
         </p>
       </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>

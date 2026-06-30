@@ -46,7 +46,15 @@ function objectiveLabel(value: string) {
   }
 }
 
-export default function RiotEvidencePanel() {
+type RiotEvidencePanelProps = {
+  embedded?: boolean;
+  onEvidenceChange?: (hasEvidence: boolean) => void;
+};
+
+export default function RiotEvidencePanel({
+  embedded = false,
+  onEvidenceChange,
+}: RiotEvidencePanelProps) {
   const [gameName, setGameName] = useState("");
   const [tagLine, setTagLine] = useState("");
   const [regionalRoute, setRegionalRoute] = useState<RiotRegionalRoute>("asia");
@@ -68,6 +76,7 @@ export default function RiotEvidencePanel() {
   async function loadMatches() {
     setError(null);
     setEvidence(null);
+    onEvidenceChange?.(false);
     setSelectedMatch(null);
 
     if (!gameName.trim() || !tagLine.trim()) {
@@ -105,6 +114,7 @@ export default function RiotEvidencePanel() {
   async function loadEvidence() {
     setError(null);
     setEvidence(null);
+    onEvidenceChange?.(false);
 
     if (!selectedMatch) {
       setError("클립이 나온 경기를 선택해 주세요.");
@@ -137,6 +147,7 @@ export default function RiotEvidencePanel() {
         throw new Error(data.error || "Riot evidence 조회에 실패했습니다.");
       }
       setEvidence(data.evidence);
+      onEvidenceChange?.(true);
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -149,13 +160,21 @@ export default function RiotEvidencePanel() {
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+    <section
+      className={
+        embedded
+          ? "space-y-4"
+          : "space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+      }
+    >
+      {!embedded && (
       <div>
-        <h2 className="text-lg font-bold text-zinc-950">Riot Timeline Evidence</h2>
+        <h2 className="text-lg font-bold text-zinc-950">Riot 경기 기록으로 근거 확인하기</h2>
         <p className="mt-1 text-sm text-zinc-500">
           Riot match timeline 기준으로 클립 주변의 이벤트, CS/골드/XP 변화, 오브젝트 영향을 추정합니다.
         </p>
       </div>
+      )}
 
       <div className="grid gap-3 md:grid-cols-4">
         <label className="text-sm font-medium text-zinc-800">
@@ -218,6 +237,7 @@ export default function RiotEvidencePanel() {
                 onClick={() => {
                   setSelectedMatch(match);
                   setEvidence(null);
+                  onEvidenceChange?.(false);
                 }}
                 className={`rounded-xl border p-3 text-left text-sm ${
                   selectedMatch?.matchId === match.matchId

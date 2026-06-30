@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CurrentOutcome,
   DeathReviewInput,
@@ -47,12 +47,15 @@ import type {
 } from "@/types/history";
 import type { ReviewEvidenceMetadata } from "@/types/evidence";
 import type { VideoReviewDraft } from "@/types/videoDraft";
+import type { ReviewFormPatch } from "@/lib/videoDraftToReviewFormPatch";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Props = {
   onResult: (data: ReviewSceneCompletion) => void;
   videoDraft?: VideoReviewDraft | null;
+  videoDraftPatch?: ReviewFormPatch;
+  videoDraftPatchVersion?: number;
 };
 
 type UserScenario = ScenarioType | "NOT_SURE";
@@ -301,7 +304,12 @@ function getScenarioDefaults(scenario: UserScenario): Partial<DeathReviewInput> 
 }
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function DeathReviewForm({ onResult, videoDraft }: Props) {
+export default function DeathReviewForm({
+  onResult,
+  videoDraft,
+  videoDraftPatch,
+  videoDraftPatchVersion = 0,
+}: Props) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [userScenario, setUserScenario] = useState<UserScenario | null>(null);
   const [input, setInput] = useState<DeathReviewInput>(initialInput);
@@ -310,6 +318,17 @@ export default function DeathReviewForm({ onResult, videoDraft }: Props) {
   const [sourceMetadata, setSourceMetadata] =
     useState<ReviewSceneMetadataInput>(initialSourceMetadata);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!videoDraftPatchVersion || !videoDraftPatch) return;
+    const nonEmptyPatch = Object.fromEntries(
+      Object.entries(videoDraftPatch).filter(
+        ([, value]) => typeof value === "string" && value.trim().length > 0
+      )
+    ) as Partial<DeathReviewInput>;
+    if (Object.keys(nonEmptyPatch).length === 0) return;
+    setInput((prev) => ({ ...prev, ...nonEmptyPatch }));
+  }, [videoDraftPatch, videoDraftPatchVersion]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
