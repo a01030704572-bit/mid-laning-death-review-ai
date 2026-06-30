@@ -132,12 +132,14 @@ function verifyField(input: {
   if (input.isRiotAmbiguous) {
     input.championStatuses[input.field] = "ambiguous_riot_position";
     input.notes.push("Riot 포지션 정보가 모호해 상대 미드 챔피언을 확정하지 않았습니다.");
+    delete input.patch[input.field];
     return;
   }
 
   if (!input.hasRiotContext) {
     input.championStatuses[input.field] = "unverified_no_riot_context";
     input.notes.push("Riot 참가자 정보가 없어 영상 챔피언 후보는 미검증 상태입니다.");
+    delete input.patch[input.field];
   }
 }
 

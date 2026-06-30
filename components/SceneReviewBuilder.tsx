@@ -3,6 +3,7 @@ import {
   buildSceneReviewSourceSummary,
   type SceneReviewSourceState,
 } from "@/lib/sceneReviewSourceSummary";
+import type { VideoDraftApplyWarning } from "@/lib/videoDraftTrustGate";
 
 type SceneReviewBuilderProps = {
   manualForm: ReactNode;
@@ -11,6 +12,7 @@ type SceneReviewBuilderProps = {
   sourceState: SceneReviewSourceState;
   canApplyVideoDraftPatch?: boolean;
   onApplyVideoDraftPatch?: () => void;
+  videoDraftApplyWarning?: VideoDraftApplyWarning | null;
 };
 
 function SourceCard({
@@ -92,6 +94,7 @@ export default function SceneReviewBuilder({
   sourceState,
   canApplyVideoDraftPatch = false,
   onApplyVideoDraftPatch,
+  videoDraftApplyWarning,
 }: SceneReviewBuilderProps) {
   const sourceSummary = buildSceneReviewSourceSummary(sourceState);
 
@@ -153,6 +156,11 @@ export default function SceneReviewBuilder({
         </p>
         {sourceState.hasVideoDraft && !sourceState.isVideoDraftApplied && (
           <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3">
+            {videoDraftApplyWarning && (
+              <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+                {videoDraftApplyWarning.message}
+              </p>
+            )}
             {canApplyVideoDraftPatch ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs leading-5 text-sky-800">

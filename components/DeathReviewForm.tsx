@@ -49,6 +49,10 @@ import type { ReviewEvidenceMetadata } from "@/types/evidence";
 import type { VideoReviewDraft } from "@/types/videoDraft";
 import type { ReviewFormPatch } from "@/lib/videoDraftToReviewFormPatch";
 import { filterVideoDraftPatchWithVerification } from "@/lib/videoDraftVerification";
+import {
+  filterVideoDraftPatchByTrustGate,
+  hasExistingCoreSceneInput,
+} from "@/lib/videoDraftTrustGate";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -57,6 +61,7 @@ type Props = {
   videoDraft?: VideoReviewDraft | null;
   videoDraftPatch?: ReviewFormPatch;
   videoDraftPatchVersion?: number;
+  onCoreSceneInputChange?: (hasCoreInput: boolean) => void;
 };
 
 type UserScenario = ScenarioType | "NOT_SURE";
@@ -310,6 +315,7 @@ export default function DeathReviewForm({
   videoDraft,
   videoDraftPatch,
   videoDraftPatchVersion = 0,
+  onCoreSceneInputChange,
 }: Props) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [userScenario, setUserScenario] = useState<UserScenario | null>(null);
@@ -323,8 +329,9 @@ export default function DeathReviewForm({
   useEffect(() => {
     if (!videoDraftPatchVersion || !videoDraftPatch) return;
     setInput((prev) => {
+      const trustGate = filterVideoDraftPatchByTrustGate(videoDraftPatch);
       const verification = filterVideoDraftPatchWithVerification({
-        patch: videoDraftPatch,
+        patch: trustGate.filteredPatch,
         manualInput: {
           myChampion: prev.myChampion,
           enemyChampion: prev.enemyChampion,
@@ -339,6 +346,10 @@ export default function DeathReviewForm({
       return { ...prev, ...nonEmptyPatch };
     });
   }, [videoDraftPatch, videoDraftPatchVersion]);
+
+  useEffect(() => {
+    onCoreSceneInputChange?.(hasExistingCoreSceneInput(input));
+  }, [input, onCoreSceneInputChange]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 

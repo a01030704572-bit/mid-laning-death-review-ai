@@ -40,10 +40,19 @@ const verificationModule = transpile("lib/videoDraftVerification.ts", {
   "@/lib/riotChampionContext": riotContextModule,
   "@/lib/videoDraftToReviewFormPatch": {},
 });
+const trustGateModule = transpile("lib/videoDraftTrustGate.ts", {
+  "@/types/review": {},
+  "@/lib/videoDraftToReviewFormPatch": {},
+});
 
 const { championNamesMatch, normalizeChampionName } = normalizer;
 const { buildRiotChampionContext } = riotContextModule;
 const { filterVideoDraftPatchWithVerification } = verificationModule;
+const {
+  buildVideoDraftApplyWarning,
+  filterVideoDraftPatchByTrustGate,
+  hasExistingCoreSceneInput,
+} = trustGateModule;
 
 test("Korean and English champion normalization matches immediate regression cases", () => {
   assert.equal(championNamesMatch("아칼리", "Akali"), true);
@@ -81,6 +90,23 @@ test("regression: Riot says Akali but video guessed Lissandra, so champion patch
   assert.equal(result.filteredPatch.laneStateDetail, "slow_pushing_to_enemy");
 });
 
+test("wrong champion draft through trust gate and champion guard preserves safe text", () => {
+  const trustGate = filterVideoDraftPatchByTrustGate({
+    myChampion: "Lissandra",
+    freeDescription: "safe visible observation",
+  });
+  const verification = filterVideoDraftPatchWithVerification({
+    patch: trustGate.filteredPatch,
+    manualInput: { myChampion: "Akali" },
+  });
+
+  assert.equal(verification.filteredPatch.myChampion, undefined);
+  assert.equal(
+    verification.filteredPatch.freeDescription,
+    "safe visible observation"
+  );
+});
+
 test("video champion matching Riot is allowed when manual input does not conflict", () => {
   const riotContext = buildRiotChampionContext({
     playerPuuid: "player-1",
@@ -99,13 +125,110 @@ test("video champion matching Riot is allowed when manual input does not conflic
 test("missing Riot evidence does not crash or create a false conflict", () => {
   const riotContext = buildRiotChampionContext();
   const result = filterVideoDraftPatchWithVerification({
-    patch: { myChampion: "Akali" },
+    patch: { myChampion: "Akali", freeDescription: "safe detail" },
     riotContext,
   });
 
   assert.equal(riotContext.status, "no_riot_context");
   assert.equal(result.championStatuses.myChampion, "unverified_no_riot_context");
+  assert.equal(result.filteredPatch.myChampion, undefined);
+  assert.equal(result.filteredPatch.freeDescription, "safe detail");
   assert.deepEqual(result.conflicts, []);
+});
+
+test("manual Akali and video Akali Korean candidate allows champion field", () => {
+  const result = filterVideoDraftPatchWithVerification({
+    patch: {
+      myChampion: "아칼리",
+      freeDescription: "safe non champion detail",
+    },
+    manualInput: { myChampion: "Akali" },
+  });
+
+  assert.equal(result.championStatuses.myChampion, "verified_match");
+  assert.equal(result.filteredPatch.myChampion, "아칼리");
+  assert.equal(result.filteredPatch.freeDescription, "safe non champion detail");
+  assert.deepEqual(result.conflicts, []);
+});
+
+test("no Riot and no manual champion skips video champion but keeps non-champion fields", () => {
+  const result = filterVideoDraftPatchWithVerification({
+    patch: {
+      myChampion: "Lissandra",
+      currentOutcome: "death",
+      freeDescription: "visible wave state",
+    },
+  });
+
+  assert.equal(result.championStatuses.myChampion, "unverified_no_riot_context");
+  assert.equal(result.filteredPatch.myChampion, undefined);
+  assert.equal(result.filteredPatch.currentOutcome, "death");
+  assert.equal(result.filteredPatch.freeDescription, "visible wave state");
+  assert.deepEqual(result.conflicts, []);
+});
+
+test("wrong objective framing is blocked by trust gate while safe text passes", () => {
+  const trustGate = filterVideoDraftPatchByTrustGate({
+    objectiveType: "dragon",
+    currentOutcome: "objective_trade_gain",
+    freeDescription: "player walked into fog before fight",
+  });
+
+  assert.deepEqual(trustGate.filteredPatch, {
+    freeDescription: "player walked into fog before fight",
+  });
+  assert.deepEqual(trustGate.blockedFields, ["objectiveType", "currentOutcome"]);
+});
+
+test("wrong fight type and routing-critical fields are blocked without verification", () => {
+  const trustGate = filterVideoDraftPatchByTrustGate({
+    currentOutcome: "solo_kill",
+    laneStateDetail: "slow_pushing_to_enemy",
+    enemyJungleInfoBeforeFight: "not_seen_recently",
+  });
+
+  assert.deepEqual(trustGate.filteredPatch, {});
+  assert.deepEqual(trustGate.blockedFields, [
+    "currentOutcome",
+    "laneStateDetail",
+    "enemyJungleInfoBeforeFight",
+  ]);
+});
+
+test("safe text apply remains allowed", () => {
+  const trustGate = filterVideoDraftPatchByTrustGate({
+    freeDescription: "only visible observation text",
+  });
+
+  assert.deepEqual(trustGate.filteredPatch, {
+    freeDescription: "only visible observation text",
+  });
+  assert.deepEqual(trustGate.blockedFields, []);
+});
+
+test("stale manual conflict warning exists when core scene input is present", () => {
+  const stale = hasExistingCoreSceneInput({
+    myChampion: "Akali",
+    enemyChampion: "Vex",
+  });
+  const warning = buildVideoDraftApplyWarning({
+    hasExistingCoreSceneInput: stale,
+    blockedFields: ["currentOutcome"],
+  });
+
+  assert.equal(stale, true);
+  assert.ok(warning);
+  assert.match(warning.message, /기존 수동 입력/);
+});
+
+test("deny-by-default blocks unclassified patch fields at runtime", () => {
+  const trustGate = filterVideoDraftPatchByTrustGate({
+    freeDescription: "safe",
+    madeUpRoutingField: "unsafe",
+  });
+
+  assert.deepEqual(trustGate.filteredPatch, { freeDescription: "safe" });
+  assert.deepEqual(trustGate.blockedFields, ["madeUpRoutingField"]);
 });
 
 test("playerPuuid not found among participants does not guess player champion", () => {
@@ -164,6 +287,24 @@ test("manual champion conflict preserves manual value and filters video champion
   assert.equal(result.championStatuses.enemyChampion, "verified_match");
 });
 
+test("manual enemy champion conflict filters enemyChampion and keeps non-champion fields", () => {
+  const result = filterVideoDraftPatchWithVerification({
+    patch: {
+      enemyChampion: "Lissandra",
+      laneStateDetail: "slow_pushing_to_enemy",
+    },
+    manualInput: {
+      enemyChampion: "Akali",
+    },
+  });
+
+  assert.equal(result.championStatuses.enemyChampion, "manual_value_preserved");
+  assert.equal(result.filteredPatch.enemyChampion, undefined);
+  assert.equal(result.filteredPatch.laneStateDetail, "slow_pushing_to_enemy");
+  assert.equal(result.conflicts.length, 1);
+  assert.equal(result.conflicts[0].field, "enemyChampion");
+});
+
 test("non-champion patch fields remain when champion fields are filtered", () => {
   const result = filterVideoDraftPatchWithVerification({
     patch: {
@@ -201,6 +342,25 @@ test("actionable conflict cap excludes informational no-context statuses", () =>
   assert.equal(result.conflicts.length, 2);
   assert.equal(result.actionableConflicts.length, 1);
   assert.equal(noContext.actionableConflicts.length, 0);
+});
+
+test("combined block reasons preserve safe text and distinguish trust gate from champion guard", () => {
+  const trustGate = filterVideoDraftPatchByTrustGate({
+    myChampion: "Lissandra",
+    currentOutcome: "solo_kill",
+    objectiveType: "dragon",
+    freeDescription: "safe observation",
+  });
+  const verification = filterVideoDraftPatchWithVerification({
+    patch: trustGate.filteredPatch,
+    manualInput: { myChampion: "Akali" },
+  });
+
+  assert.deepEqual(trustGate.blockedFields, ["currentOutcome", "objectiveType"]);
+  assert.equal(verification.conflicts[0].field, "myChampion");
+  assert.deepEqual(verification.filteredPatch, {
+    freeDescription: "safe observation",
+  });
 });
 
 function participant(puuid, teamId, championName, teamPosition) {

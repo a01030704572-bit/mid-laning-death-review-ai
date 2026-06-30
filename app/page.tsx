@@ -22,6 +22,11 @@ import {
   hasUsableVideoDraftPatch,
   mapVideoDraftToReviewFormPatch,
 } from "@/lib/videoDraftToReviewFormPatch";
+import { filterVideoDraftPatchWithVerification } from "@/lib/videoDraftVerification";
+import {
+  buildVideoDraftApplyWarning,
+  filterVideoDraftPatchByTrustGate,
+} from "@/lib/videoDraftTrustGate";
 
 export default function Home() {
   const [reviewData, setReviewData] = useState<{
@@ -34,13 +39,36 @@ export default function Home() {
   const [isVideoDraftApplied, setIsVideoDraftApplied] = useState(false);
   const [videoDraftPatchVersion, setVideoDraftPatchVersion] = useState(0);
   const [hasRiotEvidence, setHasRiotEvidence] = useState(false);
+  const [hasExistingCoreSceneInput, setHasExistingCoreSceneInput] =
+    useState(false);
   const repeatedPatternPreviewResults =
     buildRepeatedPatternPreviewResults("gold_platinum");
   const videoDraftPatch = useMemo(
     () => mapVideoDraftToReviewFormPatch(videoDraft),
     [videoDraft]
   );
-  const canApplyVideoDraftPatch = hasUsableVideoDraftPatch(videoDraftPatch);
+  const videoDraftTrustGate = useMemo(
+    () => filterVideoDraftPatchByTrustGate(videoDraftPatch),
+    [videoDraftPatch]
+  );
+  const safeVideoDraftPatchPreview = useMemo(
+    () =>
+      filterVideoDraftPatchWithVerification({
+        patch: videoDraftTrustGate.filteredPatch,
+      }).filteredPatch,
+    [videoDraftTrustGate]
+  );
+  const canApplyVideoDraftPatch = hasUsableVideoDraftPatch(
+    safeVideoDraftPatchPreview
+  );
+  const videoDraftApplyWarning = useMemo(
+    () =>
+      buildVideoDraftApplyWarning({
+        hasExistingCoreSceneInput,
+        blockedFields: videoDraftTrustGate.blockedFields,
+      }),
+    [hasExistingCoreSceneInput, videoDraftTrustGate.blockedFields]
+  );
 
   function handleVideoDraftChange(nextVideoDraft: VideoReviewDraft | null) {
     setVideoDraft(nextVideoDraft);
@@ -103,6 +131,7 @@ export default function Home() {
               videoDraft={videoDraft}
               videoDraftPatch={videoDraftPatch}
               videoDraftPatchVersion={videoDraftPatchVersion}
+              onCoreSceneInputChange={setHasExistingCoreSceneInput}
             />
           }
           videoDraftPanel={
@@ -123,6 +152,7 @@ export default function Home() {
           }}
           canApplyVideoDraftPatch={canApplyVideoDraftPatch}
           onApplyVideoDraftPatch={handleApplyVideoDraftPatch}
+          videoDraftApplyWarning={videoDraftApplyWarning}
         />
       }
       result={resultPanel}
