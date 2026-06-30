@@ -48,6 +48,7 @@ import type {
 import type { ReviewEvidenceMetadata } from "@/types/evidence";
 import type { VideoReviewDraft } from "@/types/videoDraft";
 import type { ReviewFormPatch } from "@/lib/videoDraftToReviewFormPatch";
+import { filterVideoDraftPatchWithVerification } from "@/lib/videoDraftVerification";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -321,13 +322,22 @@ export default function DeathReviewForm({
 
   useEffect(() => {
     if (!videoDraftPatchVersion || !videoDraftPatch) return;
-    const nonEmptyPatch = Object.fromEntries(
-      Object.entries(videoDraftPatch).filter(
-        ([, value]) => typeof value === "string" && value.trim().length > 0
-      )
-    ) as Partial<DeathReviewInput>;
-    if (Object.keys(nonEmptyPatch).length === 0) return;
-    setInput((prev) => ({ ...prev, ...nonEmptyPatch }));
+    setInput((prev) => {
+      const verification = filterVideoDraftPatchWithVerification({
+        patch: videoDraftPatch,
+        manualInput: {
+          myChampion: prev.myChampion,
+          enemyChampion: prev.enemyChampion,
+        },
+      });
+      const nonEmptyPatch = Object.fromEntries(
+        Object.entries(verification.filteredPatch).filter(
+          ([, value]) => typeof value === "string" && value.trim().length > 0
+        )
+      ) as Partial<DeathReviewInput>;
+      if (Object.keys(nonEmptyPatch).length === 0) return prev;
+      return { ...prev, ...nonEmptyPatch };
+    });
   }, [videoDraftPatch, videoDraftPatchVersion]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
