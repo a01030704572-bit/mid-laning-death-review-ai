@@ -71,5 +71,6 @@ export type RankMatchScenesInput = {
   riotIdentityContext: RiotIdentityContext;
   matchId: string;
   puuid: string;
+  gameDurationSec?: number;
   maxTopScenes?: number;
 };

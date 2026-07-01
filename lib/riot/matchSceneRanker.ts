@@ -508,6 +508,7 @@ export function rankMatchScenes(input: RankMatchScenesInput): MatchReviewReport 
     puuid: input.puuid,
     playerChampion: input.riotIdentityContext.target?.championName,
     enemyMidChampion: input.riotIdentityContext.enemyMid?.championName,
+    gameDurationSec: input.gameDurationSec,
     rankedScenes,
     topScenes: rankedScenes.slice(0, maxTopScenes),
     habitSignals: uniqueHabitSignals(rankedScenes),
