@@ -48,7 +48,7 @@ function objectiveLabel(value: string) {
 
 type RiotEvidencePanelProps = {
   embedded?: boolean;
-  onEvidenceChange?: (hasEvidence: boolean) => void;
+  onEvidenceChange?: (evidence: RiotTimelineEvidence | null) => void;
 };
 
 export default function RiotEvidencePanel({
@@ -76,7 +76,7 @@ export default function RiotEvidencePanel({
   async function loadMatches() {
     setError(null);
     setEvidence(null);
-    onEvidenceChange?.(false);
+    onEvidenceChange?.(null);
     setSelectedMatch(null);
 
     if (!gameName.trim() || !tagLine.trim()) {
@@ -114,7 +114,7 @@ export default function RiotEvidencePanel({
   async function loadEvidence() {
     setError(null);
     setEvidence(null);
-    onEvidenceChange?.(false);
+    onEvidenceChange?.(null);
 
     if (!selectedMatch) {
       setError("클립이 나온 경기를 선택해 주세요.");
@@ -147,7 +147,7 @@ export default function RiotEvidencePanel({
         throw new Error(data.error || "Riot evidence 조회에 실패했습니다.");
       }
       setEvidence(data.evidence);
-      onEvidenceChange?.(true);
+      onEvidenceChange?.(data.evidence);
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -237,7 +237,7 @@ export default function RiotEvidencePanel({
                 onClick={() => {
                   setSelectedMatch(match);
                   setEvidence(null);
-                  onEvidenceChange?.(false);
+                  onEvidenceChange?.(null);
                 }}
                 className={`rounded-xl border p-3 text-left text-sm ${
                   selectedMatch?.matchId === match.matchId
@@ -384,14 +384,14 @@ export default function RiotEvidencePanel({
             <p>오브젝트 준비 턴 영향 가능성: {evidence.objectiveContext.impactsDeath ? "있음" : "낮음"}</p>
           </EvidenceBlock>
 
-          <EvidenceBlock title="이 판단의 비용">
+          <EvidenceBlock title="이 판단의 기회비용 / 후속 전환 체크">
             <p className="font-medium text-zinc-900">{evidence.gainLossDraft.swingSummary}</p>
             <p className="mt-2">Tempo: {evidence.gainLossDraft.tempoImpact}</p>
             <p>Objective: {evidence.gainLossDraft.objectiveImpact}</p>
             <p>Confidence: {evidence.gainLossDraft.confidence}</p>
             <div className="mt-2 grid gap-3 md:grid-cols-2">
-              <List title="Player losses" items={evidence.gainLossDraft.playerLosses} />
-              <List title="Enemy gains" items={evidence.gainLossDraft.enemyGains} />
+              <List title="플레이어 전환 체크" items={evidence.gainLossDraft.playerLosses} />
+              <List title="상대/맵 이벤트 체크" items={evidence.gainLossDraft.enemyGains} />
             </div>
           </EvidenceBlock>
 

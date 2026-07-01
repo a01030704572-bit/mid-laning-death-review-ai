@@ -288,7 +288,7 @@ test("event importance separates primary, secondary, and minor events", () => {
   assert.equal(evidence.events[0].kind, "death");
 });
 
-test("turret plate loss creates enemy gains", () => {
+test("turret plate event is neutral when team attribution is not verified", () => {
   const evidence = buildEvidence([
     {
       timestamp: 270000,
@@ -298,7 +298,103 @@ test("turret plate loss creates enemy gains", () => {
   ]);
 
   assert.ok(evidence.events.some((event) => event.kind === "turret_plate"));
-  assert.ok(evidence.gainLossDraft.enemyGains.length > 0);
+  assert.ok(
+    evidence.gainLossDraft.enemyGains.some((gain) =>
+      gain.includes("포탑 플레이트 파괴 이벤트 발생")
+    )
+  );
+  assert.ok(
+    evidence.gainLossDraft.enemyGains.some((gain) =>
+      gain.includes("어느 팀의 이득인지는 추가 확인 필요")
+    )
+  );
+  assert.ok(
+    !evidence.gainLossDraft.enemyGains.some((gain) =>
+      gain.includes("상대 플레이트 골드 획득")
+    )
+  );
+  assert.doesNotMatch(evidence.gainLossDraft.swingSummary, /손해 장면/);
+});
+
+test("positive fight advantage-like deltas do not produce loss wording", () => {
+  const evidence = buildEvidence(
+    [
+      {
+        timestamp: 270000,
+        type: "TURRET_PLATE_DESTROYED",
+        killerId: 1,
+      },
+    ],
+    {
+      timeline: {
+        metadata: { matchId: "KR_1" },
+        info: {
+          frames: [
+            {
+              timestamp: 240000,
+              participantFrames: {
+                "1": participantFrame({
+                  participantId: 1,
+                  minionsKilled: 42,
+                  totalGold: 3200,
+                  currentGold: 700,
+                  xp: 4100,
+                  level: 8,
+                }),
+                "6": participantFrame({
+                  participantId: 6,
+                  minionsKilled: 45,
+                  totalGold: 3300,
+                  currentGold: 800,
+                  xp: 4200,
+                  level: 8,
+                }),
+              },
+              events: [],
+            },
+            {
+              timestamp: 300000,
+              participantFrames: {
+                "1": participantFrame({
+                  participantId: 1,
+                  minionsKilled: 50,
+                  totalGold: 4016,
+                  currentGold: 1516,
+                  xp: 4904,
+                  level: 9,
+                }),
+                "6": participantFrame({
+                  participantId: 6,
+                  minionsKilled: 46,
+                  totalGold: 3450,
+                  currentGold: 950,
+                  xp: 4300,
+                  level: 8,
+                }),
+              },
+              events: [
+                {
+                  timestamp: 270000,
+                  type: "TURRET_PLATE_DESTROYED",
+                  killerId: 1,
+                },
+              ],
+            },
+          ],
+        },
+      },
+    }
+  );
+
+  assert.equal(evidence.playerDelta.totalGoldDelta, 816);
+  assert.equal(evidence.playerDelta.xpDelta, 804);
+  assert.doesNotMatch(evidence.gainLossDraft.swingSummary, /손해 장면/);
+  assert.doesNotMatch(evidence.gainLossDraft.swingSummary, /단순 데스/);
+  assert.ok(
+    !evidence.gainLossDraft.enemyGains.some((gain) =>
+      gain.includes("상대 플레이트 골드 획득")
+    )
+  );
 });
 
 test("objective actual kill list stays separate from nearest scheduled objective", () => {

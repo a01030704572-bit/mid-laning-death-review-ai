@@ -76,7 +76,7 @@ export async function getRecentMatchIds({
   apiKey?: string;
 }) {
   const route = normalizeRegionalRoute(regionalRoute);
-  const safeCount = Math.min(Math.max(count, 1), 5);
+  const safeCount = Math.min(Math.max(count, 1), 10);
   return riotFetch<string[]>(
     `https://${route}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(
       puuid

@@ -12,6 +12,7 @@ import VideoDraftPanel from "@/components/VideoDraftPanel";
 import { ReviewResult, RiskTag, ScenarioType } from "@/types/review";
 import type { ReviewSceneCompletion } from "@/types/history";
 import type { ReviewEvidenceMetadata } from "@/types/evidence";
+import type { RiotTimelineEvidence } from "@/types/riot";
 import type { VideoReviewDraft } from "@/types/videoDraft";
 import {
   createReviewSceneRecord,
@@ -38,7 +39,8 @@ export default function Home() {
   const [videoDraft, setVideoDraft] = useState<VideoReviewDraft | null>(null);
   const [isVideoDraftApplied, setIsVideoDraftApplied] = useState(false);
   const [videoDraftPatchVersion, setVideoDraftPatchVersion] = useState(0);
-  const [hasRiotEvidence, setHasRiotEvidence] = useState(false);
+  const [riotEvidence, setRiotEvidence] =
+    useState<RiotTimelineEvidence | null>(null);
   const [hasExistingCoreSceneInput, setHasExistingCoreSceneInput] =
     useState(false);
   const repeatedPatternPreviewResults =
@@ -132,6 +134,7 @@ export default function Home() {
               videoDraftPatch={videoDraftPatch}
               videoDraftPatchVersion={videoDraftPatchVersion}
               onCoreSceneInputChange={setHasExistingCoreSceneInput}
+              riotEvidence={riotEvidence}
             />
           }
           videoDraftPanel={
@@ -140,15 +143,15 @@ export default function Home() {
           riotEvidencePanel={
             <RiotEvidencePanel
               embedded
-              onEvidenceChange={setHasRiotEvidence}
+              onEvidenceChange={setRiotEvidence}
             />
           }
           sourceState={{
             hasManualInput: true,
             hasVideoDraft: Boolean(videoDraft),
             isVideoDraftApplied,
-            hasRiotEvidence,
-            isRiotEvidenceConnected: false,
+            hasRiotEvidence: Boolean(riotEvidence),
+            isRiotEvidenceConnected: Boolean(riotEvidence),
           }}
           canApplyVideoDraftPatch={canApplyVideoDraftPatch}
           onApplyVideoDraftPatch={handleApplyVideoDraftPatch}

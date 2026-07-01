@@ -56,15 +56,24 @@ function hasEvent(events: RiotTimelineEvidence["events"], kind: string) {
 
 function buildPlayerLosses(playerDelta: PlayerDelta, hasDeath: boolean) {
   const losses: string[] = [];
-  if (hasDeath) losses.push("사망으로 인한 복귀 템포 손실");
-  if (playerDelta.csDelta <= 2) {
-    losses.push("CS 손실 가능성 (Riot timeline 기준 추정)");
-  }
-  if (playerDelta.xpDelta <= 120) {
-    losses.push("경험치 손실 가능성 (Riot timeline 기준 추정)");
+  if (hasDeath) {
+    losses.push("사망으로 인한 복귀 템포 손실");
+    if (playerDelta.csDelta <= 2) {
+      losses.push("CS 손실 가능성 (Riot timeline 기준 추정)");
+    }
+    if (playerDelta.xpDelta <= 120) {
+      losses.push("경험치 손실 가능성 (Riot timeline 기준 추정)");
+    }
+  } else {
+    if (playerDelta.csDelta <= 2) {
+      losses.push("CS 전환이 크지 않았을 가능성 (Riot timeline 기준 추정)");
+    }
+    if (playerDelta.xpDelta <= 120) {
+      losses.push("경험치 전환이 크지 않았을 가능성 (Riot timeline 기준 추정)");
+    }
   }
   if (losses.length === 0) {
-    losses.push("직접 손실은 제한적일 수 있으나 timeline 기준 추가 확인 필요");
+    losses.push("Riot timeline 기준 직접 손실은 제한적이며 후속 전환 확인 필요");
   }
   return losses;
 }
@@ -76,7 +85,10 @@ function buildEnemyGains(
 ) {
   const gains: string[] = [];
   if (hasDeath) gains.push("상대 킬 골드 획득");
-  if (hasPlate) gains.push("상대 플레이트 골드 획득");
+  if (hasPlate) {
+    gains.push("포탑 플레이트 파괴 이벤트 발생");
+    gains.push("어느 팀의 이득인지는 추가 확인 필요");
+  }
   if (
     enemyMidDelta.csDelta !== null &&
     enemyMidDelta.xpDelta !== null &&
@@ -106,11 +118,16 @@ function buildGainLossDraft({
   const enemyGains = buildEnemyGains(enemyMidDelta, hasDeath, hasPlate);
   const tempoImpact = hasDeath
     ? "사망으로 인한 복귀 템포 손실"
-    : "Riot timeline 기준 tempo 손실은 추가 확인 필요";
+    : "Riot timeline 기준 후속 tempo 전환은 추가 확인 필요";
   const swingParts = [];
   if (hasDeath) swingParts.push("킬 골드");
-  if (playerLosses.some((loss) => loss.includes("CS"))) swingParts.push("웨이브 손실");
-  if (hasPlate) swingParts.push("플레이트 압박");
+  if (
+    hasDeath &&
+    playerLosses.some((loss) => loss.includes("CS 손실"))
+  ) {
+    swingParts.push("웨이브 손실");
+  }
+  if (hasPlate) swingParts.push("플레이트 이벤트");
 
   return {
     playerLosses,
@@ -118,9 +135,11 @@ function buildGainLossDraft({
     tempoImpact,
     objectiveImpact,
     swingSummary:
-      swingParts.length > 0
+      hasDeath && swingParts.length > 0
         ? `이 장면은 단순 데스가 아니라 ${swingParts.join(" + ")}까지 연결된 손해 장면입니다.`
-        : "이 장면의 손익 구조는 Riot timeline 기준 추가 확인이 필요합니다.",
+        : swingParts.length > 0
+          ? `Riot timeline에서 ${swingParts.join(" + ")}가 확인됩니다. 이득/손해 귀속은 영상과 수동 입력으로 추가 확인이 필요합니다.`
+          : "이 장면의 손익 구조는 Riot timeline 기준 추가 확인이 필요합니다.",
     confidence: uncertainInfo.length >= 2 ? "low" : "medium",
   };
 }

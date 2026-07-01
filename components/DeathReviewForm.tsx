@@ -45,8 +45,10 @@ import type {
   ReviewSceneCompletion,
   ReviewSceneMetadataInput,
 } from "@/types/history";
+import type { RiotTimelineEvidence } from "@/types/riot";
 import type { ReviewEvidenceMetadata } from "@/types/evidence";
 import type { VideoReviewDraft } from "@/types/videoDraft";
+import { buildReviewRequestPayload } from "@/lib/reviewRequestPayload";
 import type { ReviewFormPatch } from "@/lib/videoDraftToReviewFormPatch";
 import { filterVideoDraftPatchWithVerification } from "@/lib/videoDraftVerification";
 import {
@@ -59,6 +61,7 @@ import {
 type Props = {
   onResult: (data: ReviewSceneCompletion) => void;
   videoDraft?: VideoReviewDraft | null;
+  riotEvidence?: RiotTimelineEvidence | null;
   videoDraftPatch?: ReviewFormPatch;
   videoDraftPatchVersion?: number;
   onCoreSceneInputChange?: (hasCoreInput: boolean) => void;
@@ -313,6 +316,7 @@ function getScenarioDefaults(scenario: UserScenario): Partial<DeathReviewInput> 
 export default function DeathReviewForm({
   onResult,
   videoDraft,
+  riotEvidence,
   videoDraftPatch,
   videoDraftPatchVersion = 0,
   onCoreSceneInputChange,
@@ -390,12 +394,11 @@ export default function DeathReviewForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          videoDraft
-            ? {
-                manualInput: input,
-                videoDraft,
-              }
-            : input
+          buildReviewRequestPayload({
+            input,
+            videoDraft,
+            riotEvidence,
+          })
         ),
       });
       const data = (await res.json()) as {
