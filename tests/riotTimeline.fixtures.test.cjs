@@ -37,6 +37,9 @@ const timelineParserModule = loadTypeScriptModule("lib/riot/timelineParser.ts");
 const evidenceBuilderModule = loadTypeScriptModule("lib/riot/evidenceBuilder.ts", {
   "@/lib/riot/timelineParser": timelineParserModule,
 });
+const autoSceneExtractorModule = loadTypeScriptModule(
+  "lib/riot/autoSceneExtractor.ts"
+);
 const riotClientModule = loadTypeScriptModule("lib/riot/client.ts");
 
 function makeMatch({ enemyMidPosition = "MIDDLE" } = {}) {
@@ -163,7 +166,7 @@ function buildEvidence(events, overrides = {}) {
   });
 }
 
-function loadEvidenceRoute(clientOverrides = {}) {
+function loadEvidenceRoute(clientOverrides = {}, extractorOverrides = {}) {
   const clientModule = {
     ...riotClientModule,
     requireRiotApiKey: () => "riot-api-key",
@@ -183,6 +186,11 @@ function loadEvidenceRoute(clientOverrides = {}) {
     },
     "@/lib/riot/client": clientModule,
     "@/lib/riot/evidenceBuilder": evidenceBuilderModule,
+    "@/lib/riot/autoSceneExtractor": {
+      ...autoSceneExtractorModule,
+      ...extractorOverrides,
+    },
+    "@/lib/riot/timelineParser": timelineParserModule,
   });
 }
 
@@ -598,6 +606,59 @@ test("missing RIOT_API_KEY returns 500", async () => {
     }
   );
   assert.equal(response.status, 500);
+});
+
+test("/api/riot/evidence includes auto scene candidates from the same Riot data", async () => {
+  const timeline = makeTimeline([
+    {
+      timestamp: 260000,
+      type: "CHAMPION_KILL",
+      killerId: 6,
+      victimId: 1,
+    },
+  ]);
+  const response = await postEvidence(
+    loadEvidenceRoute({
+      getMatchTimeline: async () => timeline,
+    }),
+    {
+      matchId: "KR_1",
+      puuid: "player-puuid",
+      gameTimeSec: 240,
+    }
+  );
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.evidence);
+  assert.ok(Array.isArray(response.body.autoSceneCandidates));
+  assert.ok(response.body.autoSceneCandidates.length > 0);
+  assert.equal(
+    response.body.autoSceneCandidates[0].type,
+    "death_review_candidate"
+  );
+  assert.equal(response.body.autoSceneCandidates[0].matchId, "KR_1");
+});
+
+test("/api/riot/evidence keeps evidence response when auto scene extraction fails", async () => {
+  const response = await postEvidence(
+    loadEvidenceRoute(
+      {},
+      {
+        extractAutoSceneCandidates: () => {
+          throw new Error("fixture extractor failure");
+        },
+      }
+    ),
+    {
+      matchId: "KR_1",
+      puuid: "player-puuid",
+      gameTimeSec: 240,
+    }
+  );
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.evidence);
+  assert.deepEqual(response.body.autoSceneCandidates, []);
 });
 
 for (const status of [403, 404, 429, 500]) {

@@ -1,3 +1,5 @@
+import type { AutoSceneCandidate } from "@/types/autoScene";
+
 export type RiotRegionalRoute = "asia" | "americas" | "europe" | "sea";
 
 export type RiotMatchListResponse = {
@@ -26,6 +28,7 @@ export type RiotEvidenceRequest = {
 
 export type RiotTimelineEvidenceResponse = {
   evidence: RiotTimelineEvidence;
+  autoSceneCandidates?: AutoSceneCandidate[];
 };
 
 export type RiotTimelineEvidence = {

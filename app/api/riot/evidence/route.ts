@@ -11,6 +11,17 @@ import {
   normalizeEvidenceRequest,
   RiotEvidenceValidationError,
 } from "@/lib/riot/evidenceBuilder";
+import { extractAutoSceneCandidates } from "@/lib/riot/autoSceneExtractor";
+import {
+  findEnemyMidParticipant,
+  findParticipantByPuuid,
+} from "@/lib/riot/timelineParser";
+import type { AutoSceneCandidate } from "@/types/autoScene";
+import type {
+  RiotEvidenceRequest,
+  RiotMatchDetail,
+  RiotMatchTimeline,
+} from "@/types/riot";
 
 function riotErrorMessage(status: number) {
   switch (status) {
@@ -22,6 +33,43 @@ function riotErrorMessage(status: number) {
       return "Riot API rate limit에 도달했습니다. 잠시 후 다시 시도해 주세요.";
     default:
       return "Riot API 조회 중 오류가 발생했습니다.";
+  }
+}
+
+function buildAutoSceneCandidatesSafely({
+  match,
+  timeline,
+  request,
+}: {
+  match: RiotMatchDetail;
+  timeline: RiotMatchTimeline;
+  request: RiotEvidenceRequest & { windowSec: number };
+}): AutoSceneCandidate[] {
+  try {
+    const player = findParticipantByPuuid(match, request.puuid);
+    if (!player) {
+      console.warn("Riot auto scene extraction skipped.", {
+        reason: "player_not_found",
+        matchId: request.matchId,
+      });
+      return [];
+    }
+
+    const enemyMid = findEnemyMidParticipant(match, player);
+    return extractAutoSceneCandidates({
+      matchId: request.matchId,
+      participantId: player.participantId,
+      championName: player.championName || request.championName,
+      opponentChampionName: enemyMid?.championName,
+      matchDetail: match,
+      timeline,
+    });
+  } catch (error) {
+    console.warn("Riot auto scene extraction failed.", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      matchId: request.matchId,
+    });
+    return [];
   }
 }
 
@@ -38,13 +86,20 @@ export async function POST(request: Request) {
       matchId: evidenceRequest.matchId,
       apiKey,
     });
+    const evidence = buildRiotTimelineEvidence({
+      match,
+      timeline,
+      request: evidenceRequest,
+    });
+    const autoSceneCandidates = buildAutoSceneCandidatesSafely({
+      match,
+      timeline,
+      request: evidenceRequest,
+    });
 
     return NextResponse.json({
-      evidence: buildRiotTimelineEvidence({
-        match,
-        timeline,
-        request: evidenceRequest,
-      }),
+      evidence,
+      autoSceneCandidates,
     });
   } catch (error) {
     if (error instanceof RiotEvidenceValidationError) {
