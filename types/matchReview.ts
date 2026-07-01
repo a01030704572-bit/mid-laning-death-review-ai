@@ -19,6 +19,13 @@ export type HabitSignal = {
   sourceSceneId?: string;
 };
 
+export type StrengthSignal = {
+  strengthType: string;
+  matchId: string;
+  gameTimeSec: number;
+  evidenceKo: string;
+};
+
 export type ConfirmationQuestion = {
   id: string;
   questionKo: string;
@@ -59,8 +66,12 @@ export type MatchReviewReport = {
   enemyMidChampion?: string;
   gameDurationSec?: number;
   rankedScenes: RankedReviewScene[];
+  improvementScenes: RankedReviewScene[];
+  strengthScenes: RankedReviewScene[];
   topScenes: RankedReviewScene[];
   habitSignals: HabitSignal[];
+  weaknessSignals: HabitSignal[];
+  strengthSignals: StrengthSignal[];
   analysisStatus: "complete" | "partial" | "failed";
   analysisVersion: string;
   generatedAt: string;

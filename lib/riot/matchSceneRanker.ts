@@ -11,6 +11,7 @@ import type {
   RankedReviewScene,
   RankMatchScenesInput,
   SceneValence,
+  StrengthSignal,
 } from "@/types/matchReview";
 
 const ANALYSIS_VERSION = "level-8-b.match-scene-ranker.v1";
@@ -31,6 +32,7 @@ type SceneScoringRule = {
   evidenceExtractors: EvidenceScoringRule[];
   confirmationQuestions: ConfirmationQuestion[];
   habitTypes: string[];
+  strengthTypes: string[];
 };
 
 function hasText(candidate: AutoSceneCandidate, patterns: string[]) {
@@ -115,7 +117,8 @@ const SCENE_SCORING_RULES = {
       ...COMMON_CONFIRMATION_QUESTIONS,
       question("death_setup", "죽기 직전 라인 위치와 상대 정글 정보는 확인됐나요?"),
     ],
-    habitTypes: ["death_review"],
+    habitTypes: ["death_review", "LOW_RESOURCE_STAY"],
+    strengthTypes: [],
   },
   jungle_gank_death_candidate: {
     baseScore: 86,
@@ -143,7 +146,8 @@ const SCENE_SCORING_RULES = {
       question("jungle_tracking", "압박 전에 상대 정글 위치를 확인할 근거가 있었나요?"),
       question("lane_position", "사망 직전 라인이 상대 쪽으로 길게 밀려 있었나요?"),
     ],
-    habitTypes: ["jungle_tracking", "vision_before_pressure"],
+    habitTypes: ["PUSHED_WITHOUT_JUNGLE_TRACKING", "vision_before_pressure"],
+    strengthTypes: [],
   },
   solo_kill_candidate: {
     baseScore: 68,
@@ -168,7 +172,8 @@ const SCENE_SCORING_RULES = {
       ...COMMON_CONFIRMATION_QUESTIONS,
       question("conversion_choice", "킬 이후 웨이브, 리콜, 플레이트 중 무엇으로 전환했나요?"),
     ],
-    habitTypes: ["kill_to_value_conversion"],
+    habitTypes: [],
+    strengthTypes: ["STRONG_SOLO_KILL_EXECUTION", "GOOD_FIGHT_JOIN_TIMING"],
   },
   post_kill_conversion_candidate: {
     baseScore: 76,
@@ -195,7 +200,8 @@ const SCENE_SCORING_RULES = {
       question("post_kill_wave", "킬 이후 웨이브를 먼저 정리할 수 있었나요?"),
       question("recall_or_plate", "리콜과 플레이트 중 어떤 선택이 더 안전했나요?"),
     ],
-    habitTypes: ["kill_to_value_conversion", "post_kill_escape_plan"],
+    habitTypes: ["POOR_POST_KILL_CONVERSION", "post_kill_escape_plan"],
+    strengthTypes: [],
   },
   objective_setup_failure_candidate: {
     baseScore: 78,
@@ -222,7 +228,8 @@ const SCENE_SCORING_RULES = {
       question("objective_timer", "죽기 전 오브젝트까지 남은 시간이 판단에 영향을 줬나요?"),
       question("setup_order", "라인, 리콜, 시야 순서가 맞았나요?"),
     ],
-    habitTypes: ["objective_setup", "recall_timing"],
+    habitTypes: ["LATE_OBJECTIVE_PREP", "recall_timing"],
+    strengthTypes: [],
   },
   unsafe_warding_candidate: {
     baseScore: 70,
@@ -242,6 +249,7 @@ const SCENE_SCORING_RULES = {
       question("warding_cover", "와드를 박을 때 아군 커버나 상대 위치 정보가 있었나요?"),
     ],
     habitTypes: ["vision", "unsafe_warding"],
+    strengthTypes: [],
   },
   no_flash_fight_candidate: {
     baseScore: 72,
@@ -261,7 +269,8 @@ const SCENE_SCORING_RULES = {
       ...COMMON_CONFIRMATION_QUESTIONS,
       question("cooldown_check", "교전 시작 전에 내 점멸/이동기 쿨타임을 확인했나요?"),
     ],
-    habitTypes: ["cooldown_awareness", "fight_entry"],
+    habitTypes: ["FOUGHT_WITHOUT_FLASH", "fight_entry"],
+    strengthTypes: [],
   },
   support_roam_collapse_candidate: {
     baseScore: 74,
@@ -282,6 +291,7 @@ const SCENE_SCORING_RULES = {
       question("support_position", "상대 서포터가 실제로 화면에 보였거나 관여했나요?"),
     ],
     habitTypes: ["support_roam_awareness", "ally_cover_check"],
+    strengthTypes: [],
   },
   tempo_loss_candidate: {
     baseScore: 62,
@@ -301,6 +311,7 @@ const SCENE_SCORING_RULES = {
       question("tempo_choice", "이 타이밍에 리콜, 시야, 라인 중 무엇이 가장 확실했나요?"),
     ],
     habitTypes: ["tempo_management", "recall_timing"],
+    strengthTypes: [],
   },
   wave_management_error_candidate: {
     baseScore: 64,
@@ -319,7 +330,8 @@ const SCENE_SCORING_RULES = {
       ...COMMON_CONFIRMATION_QUESTIONS,
       question("wave_state", "이동 또는 교전 전에 미드 웨이브가 먼저 정리됐나요?"),
     ],
-    habitTypes: ["wave_management"],
+    habitTypes: ["BLIND_ROAM_WITH_BAD_WAVE"],
+    strengthTypes: [],
   },
   blind_roaming_candidate: {
     baseScore: 66,
@@ -338,7 +350,8 @@ const SCENE_SCORING_RULES = {
       ...COMMON_CONFIRMATION_QUESTIONS,
       question("roam_reason", "로밍 전에 상대 미드와 정글 위치를 확인했나요?"),
     ],
-    habitTypes: ["roam_timing", "information_check"],
+    habitTypes: ["BLIND_ROAM_WITH_BAD_WAVE", "information_check"],
+    strengthTypes: [],
   },
   poor_resource_management_candidate: {
     baseScore: 60,
@@ -358,7 +371,8 @@ const SCENE_SCORING_RULES = {
       ...COMMON_CONFIRMATION_QUESTIONS,
       question("resource_state", "교전 또는 잔류 전에 체력, 마나, 핵심 쿨타임이 충분했나요?"),
     ],
-    habitTypes: ["resource_management", "overstay_check"],
+    habitTypes: ["LOW_RESOURCE_STAY", "overstay_check"],
+    strengthTypes: [],
   },
 } satisfies Record<AutoSceneType, SceneScoringRule>;
 
@@ -410,6 +424,13 @@ function buildHabitSignals(
 function habitTypeLabelKo(habitType: string) {
   const labels: Record<string, string> = {
     death_review: "사망 장면 복기",
+    PUSHED_WITHOUT_JUNGLE_TRACKING: "정글 위치 없이 압박",
+    FOUGHT_WITHOUT_FLASH: "점멸 없이 교전",
+    POOR_POST_KILL_CONVERSION: "킬 이후 이득 전환 부족",
+    LATE_OBJECTIVE_PREP: "오브젝트 준비 타이밍 손실",
+    BLIND_ROAM_WITH_BAD_WAVE: "웨이브 정리 전 이동",
+    OVERCHASE_TOWARD_ENEMY_COVER: "상대 커버 방향 추격",
+    LOW_RESOURCE_STAY: "자원 부족 상태 체류",
     jungle_tracking: "정글 위치 확인",
     vision_before_pressure: "압박 전 시야 확인",
     kill_to_value_conversion: "킬 이후 이득 전환",
@@ -492,6 +513,127 @@ function uniqueHabitSignals(scenes: RankedReviewScene[]): HabitSignal[] {
   return signals;
 }
 
+function isImprovementValence(scene: RankedReviewScene) {
+  return (
+    scene.sceneValence === "bad_decision" ||
+    scene.sceneValence === "missed_opportunity" ||
+    scene.sceneValence === "pattern_flag"
+  );
+}
+
+function isNearDuplicate(
+  scene: RankedReviewScene,
+  selectedScenes: RankedReviewScene[]
+) {
+  return selectedScenes.some(
+    (selectedScene) =>
+      selectedScene.matchId === scene.matchId &&
+      Math.abs(selectedScene.gameTimeSec - scene.gameTimeSec) <= 30
+  );
+}
+
+function selectDiverseScenes(
+  scenes: RankedReviewScene[],
+  max: number,
+  predicate: (scene: RankedReviewScene) => boolean
+) {
+  const candidates = scenes.filter(predicate);
+  const selected: RankedReviewScene[] = [];
+  const usedTypes = new Set<string>();
+
+  for (const scene of candidates) {
+    if (selected.length >= max) break;
+    if (isNearDuplicate(scene, selected)) continue;
+    if (usedTypes.has(scene.autoSceneType)) continue;
+    selected.push(scene);
+    usedTypes.add(scene.autoSceneType);
+  }
+
+  for (const scene of candidates) {
+    if (selected.length >= max) break;
+    if (selected.some((selectedScene) => selectedScene.sceneId === scene.sceneId)) {
+      continue;
+    }
+    if (isNearDuplicate(scene, selected)) continue;
+    selected.push(scene);
+  }
+
+  for (const scene of candidates) {
+    if (selected.length >= max) break;
+    if (selected.some((selectedScene) => selectedScene.sceneId === scene.sceneId)) {
+      continue;
+    }
+    if (isNearDuplicate(scene, selected)) continue;
+    selected.push(scene);
+  }
+
+  return selected;
+}
+
+function selectImprovementScenes(rankedScenes: RankedReviewScene[], max = 5) {
+  return selectDiverseScenes(rankedScenes, max, isImprovementValence);
+}
+
+function selectStrengthScenes(rankedScenes: RankedReviewScene[], max = 3) {
+  return selectDiverseScenes(
+    rankedScenes,
+    max,
+    (scene) => scene.sceneValence === "good_decision"
+  );
+}
+
+function pushUniqueScene(
+  scenes: RankedReviewScene[],
+  scene: RankedReviewScene | undefined,
+  max: number
+) {
+  if (!scene || scenes.length >= max) return;
+  if (scenes.some((existingScene) => existingScene.sceneId === scene.sceneId)) {
+    return;
+  }
+  scenes.push(scene);
+}
+
+function selectCuratedTopScenes(
+  rankedScenes: RankedReviewScene[],
+  improvementScenes: RankedReviewScene[],
+  strengthScenes: RankedReviewScene[],
+  maxTopScenes: number
+) {
+  const selected: RankedReviewScene[] = [];
+
+  pushUniqueScene(selected, strengthScenes[0], maxTopScenes);
+  pushUniqueScene(selected, improvementScenes[0], maxTopScenes);
+
+  for (const scene of rankedScenes) {
+    pushUniqueScene(selected, scene, maxTopScenes);
+  }
+
+  return selected;
+}
+
+function buildStrengthSignals(scenes: RankedReviewScene[]): StrengthSignal[] {
+  const signals: StrengthSignal[] = [];
+  const seen = new Set<string>();
+
+  for (const scene of scenes) {
+    const rule = SCENE_SCORING_RULES[scene.autoSceneType];
+    for (const strengthType of rule.strengthTypes) {
+      const key = `${strengthType}:${scene.sceneId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      signals.push({
+        strengthType,
+        matchId: scene.matchId,
+        gameTimeSec: scene.gameTimeSec,
+        evidenceKo: scene.evidenceSummaryKo,
+      });
+    }
+  }
+
+  return signals;
+}
+
 export function rankMatchScenes(input: RankMatchScenesInput): MatchReviewReport {
   const maxTopScenes = Math.max(0, input.maxTopScenes ?? 5);
   const rankedScenes = input.autoSceneCandidates
@@ -502,6 +644,17 @@ export function rankMatchScenes(input: RankMatchScenesInput): MatchReviewReport 
         left.gameTimeSec - right.gameTimeSec ||
         left.sceneId.localeCompare(right.sceneId)
     );
+  const improvementScenes = selectImprovementScenes(rankedScenes);
+  const strengthScenes = selectStrengthScenes(rankedScenes);
+  const topScenes = selectCuratedTopScenes(
+    rankedScenes,
+    improvementScenes,
+    strengthScenes,
+    maxTopScenes
+  );
+  const habitSignals = uniqueHabitSignals(rankedScenes);
+  const weaknessSignals = uniqueHabitSignals(improvementScenes);
+  const strengthSignals = buildStrengthSignals(strengthScenes);
 
   return {
     matchId: input.matchId,
@@ -510,8 +663,12 @@ export function rankMatchScenes(input: RankMatchScenesInput): MatchReviewReport 
     enemyMidChampion: input.riotIdentityContext.enemyMid?.championName,
     gameDurationSec: input.gameDurationSec,
     rankedScenes,
-    topScenes: rankedScenes.slice(0, maxTopScenes),
-    habitSignals: uniqueHabitSignals(rankedScenes),
+    improvementScenes,
+    strengthScenes,
+    topScenes,
+    habitSignals,
+    weaknessSignals,
+    strengthSignals,
     analysisStatus: rankedScenes.length > 0 ? "complete" : "partial",
     analysisVersion: ANALYSIS_VERSION,
     generatedAt: PURE_GENERATED_AT,

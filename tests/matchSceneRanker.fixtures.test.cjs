@@ -195,8 +195,12 @@ test("empty candidates returns partial analysis and no top scenes", () => {
 
   assert.equal(report.analysisStatus, "partial");
   assert.deepEqual(report.rankedScenes, []);
+  assert.deepEqual(report.improvementScenes, []);
+  assert.deepEqual(report.strengthScenes, []);
   assert.deepEqual(report.topScenes, []);
   assert.deepEqual(report.habitSignals, []);
+  assert.deepEqual(report.weaknessSignals, []);
+  assert.deepEqual(report.strengthSignals, []);
 });
 
 test("multiple candidates are sorted by reviewWorthinessScore descending", () => {
@@ -242,4 +246,199 @@ test("maxTopScenes limits top scene count", () => {
 
   assert.equal(report.rankedScenes.length, 3);
   assert.equal(report.topScenes.length, 2);
+});
+
+test("rankedScenes remains full score-sorted list while subsets are curated", () => {
+  const candidates = [
+    makeCandidate({
+      id: "low",
+      type: "poor_resource_management_candidate",
+      confidence: "low",
+      gameTimeSec: 900,
+    }),
+    makeCandidate({
+      id: "high",
+      type: "jungle_gank_death_candidate",
+      confidence: "high",
+      gameTimeSec: 300,
+      riskTagSeeds: ["ENEMY_JUNGLER_UNKNOWN", "NO_RIVER_VISION"],
+      reasonKo: "상대 jungle 관여가 있는 사망 후보입니다.",
+    }),
+    makeCandidate({
+      id: "strength",
+      type: "solo_kill_candidate",
+      confidence: "high",
+      gameTimeSec: 600,
+    }),
+  ];
+  const report = rank(candidates);
+
+  assert.equal(report.rankedScenes.length, candidates.length);
+  assert.deepEqual(
+    report.rankedScenes.map((scene) => scene.reviewWorthinessScore),
+    [...report.rankedScenes]
+      .map((scene) => scene.reviewWorthinessScore)
+      .sort((left, right) => right - left)
+  );
+  assert.ok(report.improvementScenes.length > 0);
+  assert.ok(report.strengthScenes.length > 0);
+});
+
+test("good decisions appear in strengthScenes and risky scenes appear in improvementScenes", () => {
+  const report = rank([
+    makeCandidate({
+      id: "good",
+      type: "solo_kill_candidate",
+      confidence: "high",
+      gameTimeSec: 600,
+    }),
+    makeCandidate({
+      id: "bad",
+      type: "no_flash_fight_candidate",
+      confidence: "high",
+      gameTimeSec: 900,
+      riskTagSeeds: ["NO_FLASH_WINDOW"],
+    }),
+    makeCandidate({
+      id: "missed",
+      type: "objective_setup_failure_candidate",
+      confidence: "medium",
+      gameTimeSec: 1100,
+    }),
+  ]);
+
+  assert.deepEqual(
+    report.strengthScenes.map((scene) => scene.sceneId),
+    ["good"]
+  );
+  assert.ok(
+    report.improvementScenes.some((scene) => scene.sceneId === "bad")
+  );
+  assert.ok(
+    report.improvementScenes.some((scene) => scene.sceneId === "missed")
+  );
+});
+
+test("topScenes includes both strength and improvement when both are available", () => {
+  const report = rank([
+    makeCandidate({
+      id: "improve-high",
+      type: "jungle_gank_death_candidate",
+      confidence: "high",
+      gameTimeSec: 300,
+      riskTagSeeds: ["ENEMY_JUNGLER_UNKNOWN", "NO_RIVER_VISION"],
+      reasonKo: "상대 jungle 관여가 있는 사망 후보입니다.",
+    }),
+    makeCandidate({
+      id: "strength-lower",
+      type: "solo_kill_candidate",
+      confidence: "medium",
+      gameTimeSec: 700,
+    }),
+    makeCandidate({
+      id: "improve-next",
+      type: "no_flash_fight_candidate",
+      confidence: "high",
+      gameTimeSec: 900,
+      riskTagSeeds: ["NO_FLASH_WINDOW"],
+    }),
+  ]);
+
+  assert.ok(
+    report.topScenes.some((scene) => scene.sceneValence === "good_decision")
+  );
+  assert.ok(report.topScenes.some((scene) => scene.sceneValence !== "good_decision"));
+});
+
+test("near-duplicate scenes within 30 seconds are reduced when alternatives exist", () => {
+  const report = rank([
+    makeCandidate({
+      id: "death-600",
+      type: "jungle_gank_death_candidate",
+      confidence: "high",
+      gameTimeSec: 600,
+      riskTagSeeds: ["ENEMY_JUNGLER_UNKNOWN", "NO_RIVER_VISION"],
+      reasonKo: "상대 jungle 관여가 있는 사망 후보입니다.",
+    }),
+    makeCandidate({
+      id: "death-620",
+      type: "death_review_candidate",
+      confidence: "high",
+      gameTimeSec: 620,
+    }),
+    makeCandidate({
+      id: "flash-900",
+      type: "no_flash_fight_candidate",
+      confidence: "high",
+      gameTimeSec: 900,
+      riskTagSeeds: ["NO_FLASH_WINDOW"],
+    }),
+    makeCandidate({
+      id: "solo-1000",
+      type: "solo_kill_candidate",
+      confidence: "high",
+      gameTimeSec: 1000,
+    }),
+    makeCandidate({
+      id: "solo-1020",
+      type: "solo_kill_candidate",
+      confidence: "medium",
+      gameTimeSec: 1020,
+    }),
+    makeCandidate({
+      id: "solo-1300",
+      type: "solo_kill_candidate",
+      confidence: "low",
+      gameTimeSec: 1300,
+    }),
+  ]);
+
+  assert.ok(
+    !(
+      report.improvementScenes.some((scene) => scene.sceneId === "death-600") &&
+      report.improvementScenes.some((scene) => scene.sceneId === "death-620")
+    )
+  );
+  assert.ok(
+    report.improvementScenes.some((scene) => scene.sceneId === "flash-900")
+  );
+  assert.ok(
+    !(
+      report.strengthScenes.some((scene) => scene.sceneId === "solo-1000") &&
+      report.strengthScenes.some((scene) => scene.sceneId === "solo-1020")
+    )
+  );
+  assert.ok(
+    report.strengthScenes.some((scene) => scene.sceneId === "solo-1300")
+  );
+});
+
+test("strengthSignals and weaknessSignals are generated from curated scene groups", () => {
+  const report = rank([
+    makeCandidate({
+      id: "good",
+      type: "solo_kill_candidate",
+      confidence: "high",
+      gameTimeSec: 600,
+    }),
+    makeCandidate({
+      id: "bad",
+      type: "jungle_gank_death_candidate",
+      confidence: "high",
+      gameTimeSec: 900,
+      riskTagSeeds: ["ENEMY_JUNGLER_UNKNOWN", "NO_RIVER_VISION"],
+      reasonKo: "상대 jungle 관여가 있는 사망 후보입니다.",
+    }),
+  ]);
+
+  assert.ok(
+    report.strengthSignals.some(
+      (signal) => signal.strengthType === "STRONG_SOLO_KILL_EXECUTION"
+    )
+  );
+  assert.ok(
+    report.weaknessSignals.some(
+      (signal) => signal.habitType === "PUSHED_WITHOUT_JUNGLE_TRACKING"
+    )
+  );
 });
