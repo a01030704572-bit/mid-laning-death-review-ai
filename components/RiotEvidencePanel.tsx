@@ -49,11 +49,13 @@ function objectiveLabel(value: string) {
 type RiotEvidencePanelProps = {
   embedded?: boolean;
   onEvidenceChange?: (evidence: RiotTimelineEvidence | null) => void;
+  onMatchReviewRequested?: (matchId: string, puuid: string) => void;
 };
 
 export default function RiotEvidencePanel({
   embedded = false,
   onEvidenceChange,
+  onMatchReviewRequested,
 }: RiotEvidencePanelProps) {
   const [gameName, setGameName] = useState("");
   const [tagLine, setTagLine] = useState("");
@@ -148,6 +150,7 @@ export default function RiotEvidencePanel({
       }
       setEvidence(data.evidence);
       onEvidenceChange?.(data.evidence);
+      onMatchReviewRequested?.(selectedMatch.matchId, selectedMatch.puuid);
     } catch (requestError) {
       setError(
         requestError instanceof Error

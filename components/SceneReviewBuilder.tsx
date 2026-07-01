@@ -9,6 +9,7 @@ type SceneReviewBuilderProps = {
   manualForm: ReactNode;
   videoDraftPanel: ReactNode;
   riotEvidencePanel: ReactNode;
+  matchAnalysisDashboard?: ReactNode;
   sourceState: SceneReviewSourceState;
   canApplyVideoDraftPatch?: boolean;
   onApplyVideoDraftPatch?: () => void;
@@ -91,6 +92,7 @@ export default function SceneReviewBuilder({
   manualForm,
   videoDraftPanel,
   riotEvidencePanel,
+  matchAnalysisDashboard,
   sourceState,
   canApplyVideoDraftPatch = false,
   onApplyVideoDraftPatch,
@@ -183,6 +185,8 @@ export default function SceneReviewBuilder({
           </div>
         )}
       </div>
+
+      {matchAnalysisDashboard}
 
       {manualForm}
 
