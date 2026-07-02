@@ -1,3 +1,4 @@
+import PostGameSummaryCard from "@/components/PostGameSummaryCard";
 import RankedSceneCard from "@/components/RankedSceneCard";
 import type {
   MatchReviewReport,
@@ -95,18 +96,24 @@ export default function MatchAnalysisDashboard({
       </div>
 
       <div className="mt-4 space-y-3">
+        <PostGameSummaryCard
+          topScenes={topScenes}
+          strengthScenes={strengthScenes}
+          improvementScenes={improvementScenes}
+        />
         <SceneSection
-          title="개선 후보"
-          description="이번 경기에서 다시 볼 만한 위험 판단, 놓친 전환, 반복 습관 후보입니다."
-          scenes={improvementScenes}
-          emptyText="개선 후보로 분리된 장면이 없습니다."
+          title="대표 장면"
+          description="이번 경기에서 가장 먼저 복기할 핵심 장면입니다."
+          scenes={topScenes}
+          emptyText="분석된 장면이 없습니다."
           selectedScene={selectedScene}
           sceneBundlesByRepresentative={sceneBundlesByRepresentative}
+          showBundleSummary
           onSelectScene={onSelectScene}
         />
         <SceneSection
-          title="강점 후보"
-          description="이번 경기에서 유지할 만한 좋은 판단 후보입니다."
+          title="유지할 강점"
+          description="다음 판에도 유지할 만한 좋은 판단 후보입니다."
           scenes={strengthScenes}
           emptyText="강점 후보로 분리된 장면이 없습니다."
           selectedScene={selectedScene}
@@ -114,13 +121,12 @@ export default function MatchAnalysisDashboard({
           onSelectScene={onSelectScene}
         />
         <SceneSection
-          title="대표 장면"
-          description="강점과 개선 후보를 섞어 뽑은 대표 복기 장면입니다."
-          scenes={topScenes}
-          emptyText="분석된 장면이 없습니다."
+          title="다음에 체크할 후보"
+          description="위험 판단, 놓친 전환, 반복 습관으로 이어질 수 있는 후보입니다."
+          scenes={improvementScenes}
+          emptyText="다음에 체크할 후보로 분리된 장면이 없습니다."
           selectedScene={selectedScene}
           sceneBundlesByRepresentative={sceneBundlesByRepresentative}
-          showBundleSummary
           onSelectScene={onSelectScene}
         />
       </div>
