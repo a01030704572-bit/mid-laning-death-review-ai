@@ -305,6 +305,49 @@ test("missing videoDraft and riotEvidence does not fail the review", async () =>
   assert.equal(response.body.evidenceMetadata.sourcePresence.riot, false);
 });
 
+test("generated but unapplied video draft is reported as not applied instead of missing", async () => {
+  const { routeModule } = loadReviewRoute();
+  const response = await postReview(routeModule, {
+    manualInput: makeInput(),
+    videoDraftSourceState: "generated_not_applied",
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.evidenceMetadata.sourcePresence.video, false);
+  assert.ok(
+    response.body.evidenceMetadata.missingInfo.some((info) =>
+      info.includes("생성됐지만 이번 리뷰 입력에는 아직 적용되지 않았습니다")
+    )
+  );
+  assert.ok(
+    !response.body.evidenceMetadata.missingInfo.some((info) =>
+      info.includes("영상 초안이 없어")
+    )
+  );
+});
+
+test("applied video draft is connected in evidence metadata", async () => {
+  const { routeModule } = loadReviewRoute();
+  const response = await postReview(routeModule, {
+    manualInput: makeInput(),
+    videoDraft: makeVideoDraft(),
+    videoDraftSourceState: "applied",
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.evidenceMetadata.sourcePresence.video, true);
+  assert.ok(
+    response.body.evidenceMetadata.evidenceSummary.some((summary) =>
+      summary.includes("영상 초안") || summary.includes("?곸긽")
+    )
+  );
+  assert.ok(
+    !response.body.evidenceMetadata.missingInfo.some((info) =>
+      info.includes("영상 초안이 없어")
+    )
+  );
+});
+
 test("evidenceMetadata does not include raw or heavy source snapshots", async () => {
   const { routeModule } = loadReviewRoute();
   const response = await postReview(routeModule, {

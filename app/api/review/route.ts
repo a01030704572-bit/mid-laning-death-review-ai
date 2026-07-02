@@ -14,6 +14,7 @@ import { mapCoachingCategories } from "@/lib/coachingCategoryMapper";
 import { buildCoachingKnowledgeBlock } from "@/lib/coachingKnowledge";
 import { determineScenarioType } from "@/lib/scenarioRouter";
 import { generateCoachingReview } from "@/lib/ai/generateReview";
+import type { VideoDraftSourceState } from "@/lib/reviewRequestPayload";
 import { getSceneScenarioById } from "@/lib/coachingMetrics";
 import { mapEvidenceToSceneCandidates } from "@/lib/sceneCandidateMapper";
 import {
@@ -28,6 +29,7 @@ type ReviewRequestBody = Partial<DeathReviewInput> & {
   manualInput?: Partial<DeathReviewInput> | null;
   videoDraft?: Partial<VideoReviewDraft> | null;
   riotEvidence?: Partial<RiotTimelineEvidence> | null;
+  videoDraftSourceState?: VideoDraftSourceState;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -42,6 +44,7 @@ function extractReviewRequest(body: unknown): {
   input: DeathReviewInput;
   videoDraft?: Partial<VideoReviewDraft>;
   riotEvidence?: Partial<RiotTimelineEvidence>;
+  videoDraftSourceState?: VideoDraftSourceState;
 } {
   const record = isRecord(body) ? (body as ReviewRequestBody) : {};
 
@@ -50,17 +53,54 @@ function extractReviewRequest(body: unknown): {
       input: record.manualInput as DeathReviewInput,
       videoDraft: asOptionalRecord<VideoReviewDraft>(record.videoDraft),
       riotEvidence: asOptionalRecord<RiotTimelineEvidence>(record.riotEvidence),
+      videoDraftSourceState: record.videoDraftSourceState,
     };
   }
 
-  const { manualInput: _manualInput, videoDraft, riotEvidence, ...manualFields } =
-    record;
+  const {
+    manualInput: _manualInput,
+    videoDraft,
+    riotEvidence,
+    videoDraftSourceState,
+    ...manualFields
+  } = record;
 
   return {
     input: manualFields as DeathReviewInput,
     videoDraft: asOptionalRecord<VideoReviewDraft>(videoDraft),
     riotEvidence: asOptionalRecord<RiotTimelineEvidence>(riotEvidence),
+    videoDraftSourceState,
   };
+}
+
+function applyVideoDraftSourceState(
+  evidenceMetadata: ReviewEvidenceMetadata,
+  videoDraftSourceState?: VideoDraftSourceState
+) {
+  if (videoDraftSourceState === "generated_not_applied") {
+    evidenceMetadata.sourcePresence.video = false;
+    evidenceMetadata.sourceConfidence.video = "unknown";
+    evidenceMetadata.missingInfo = [
+      ...evidenceMetadata.missingInfo.filter(
+        (info) =>
+          !info.includes("영상 초안") &&
+          !info.includes("?곸긽 珥덉븞")
+      ),
+      "영상 초안은 생성됐지만 이번 리뷰 입력에는 아직 적용되지 않았습니다.",
+    ];
+    return evidenceMetadata;
+  }
+
+  if (videoDraftSourceState === "applied") {
+    evidenceMetadata.sourcePresence.video = true;
+    evidenceMetadata.missingInfo = evidenceMetadata.missingInfo.filter(
+      (info) =>
+        !info.includes("영상 초안이 없어") &&
+        !info.includes("?곸긽 珥덉븞???놁뼱")
+    );
+  }
+
+  return evidenceMetadata;
 }
 
 function compactStringList(values: string[]): string[] {
@@ -99,18 +139,23 @@ function buildEvidenceMetadataSafely({
   input,
   videoDraft,
   riotEvidence,
+  videoDraftSourceState,
 }: {
   input: DeathReviewInput;
   videoDraft?: Partial<VideoReviewDraft>;
   riotEvidence?: Partial<RiotTimelineEvidence>;
+  videoDraftSourceState?: VideoDraftSourceState;
 }): ReviewEvidenceMetadata {
   try {
-    return compactEvidenceMetadata(
+    return applyVideoDraftSourceState(
+      compactEvidenceMetadata(
       buildSceneEvidencePackage({
         manualInput: input,
         videoDraft,
         riotEvidence,
       })
+      ),
+      videoDraftSourceState
     );
   } catch (error) {
     console.error(
@@ -121,7 +166,8 @@ function buildEvidenceMetadataSafely({
     return {
       sourcePresence: {
         manual: true,
-        video: Boolean(videoDraft),
+        video:
+          videoDraftSourceState === "applied" ? true : Boolean(videoDraft),
         riot: Boolean(riotEvidence),
       },
       sourceConfidence: {
@@ -190,13 +236,13 @@ function isReviewMockEnabled() {
 
 export async function POST(req: Request) {
   try {
-    const { input, videoDraft, riotEvidence } = extractReviewRequest(
-      await req.json()
-    );
+    const { input, videoDraft, riotEvidence, videoDraftSourceState } =
+      extractReviewRequest(await req.json());
     const evidenceMetadata = buildEvidenceMetadataSafely({
       input,
       videoDraft,
       riotEvidence,
+      videoDraftSourceState,
     });
 
     const riskTags = generateRiskTags(input);

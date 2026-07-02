@@ -62,6 +62,7 @@ type Props = {
   onResult: (data: ReviewSceneCompletion) => void;
   videoDraft?: VideoReviewDraft | null;
   riotEvidence?: RiotTimelineEvidence | null;
+  isVideoDraftApplied?: boolean;
   videoDraftPatch?: ReviewFormPatch;
   videoDraftPatchVersion?: number;
   onCoreSceneInputChange?: (hasCoreInput: boolean) => void;
@@ -317,6 +318,7 @@ export default function DeathReviewForm({
   onResult,
   videoDraft,
   riotEvidence,
+  isVideoDraftApplied = false,
   videoDraftPatch,
   videoDraftPatchVersion = 0,
   onCoreSceneInputChange,
@@ -396,8 +398,13 @@ export default function DeathReviewForm({
         body: JSON.stringify(
           buildReviewRequestPayload({
             input,
-            videoDraft,
+            videoDraft: isVideoDraftApplied ? videoDraft : null,
             riotEvidence,
+            videoDraftSourceState: videoDraft
+              ? isVideoDraftApplied
+                ? "applied"
+                : "generated_not_applied"
+              : undefined,
           })
         ),
       });

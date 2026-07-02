@@ -96,3 +96,30 @@ test("video draft and Riot evidence can be sent together", () => {
   assert.equal(payload.videoDraft, videoDraft);
   assert.equal(payload.riotEvidence, riotEvidence);
 });
+
+test("generated but unapplied video draft sends source state without video evidence", () => {
+  const input = makeInput();
+  const payload = buildReviewRequestPayload({
+    input,
+    videoDraft: null,
+    videoDraftSourceState: "generated_not_applied",
+  });
+
+  assert.equal(payload.manualInput, input);
+  assert.equal(payload.videoDraftSourceState, "generated_not_applied");
+  assert.equal("videoDraft" in payload, false);
+});
+
+test("applied video draft sends source state and video evidence", () => {
+  const input = makeInput();
+  const videoDraft = { suggestedFreeDescription: "video observation" };
+  const payload = buildReviewRequestPayload({
+    input,
+    videoDraft,
+    videoDraftSourceState: "applied",
+  });
+
+  assert.equal(payload.manualInput, input);
+  assert.equal(payload.videoDraft, videoDraft);
+  assert.equal(payload.videoDraftSourceState, "applied");
+});

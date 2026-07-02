@@ -220,6 +220,7 @@ export default function Home() {
             <DeathReviewForm
               onResult={handleReviewResult}
               videoDraft={videoDraft}
+              isVideoDraftApplied={isVideoDraftApplied}
               videoDraftPatch={videoDraftPatch}
               videoDraftPatchVersion={videoDraftPatchVersion}
               onCoreSceneInputChange={setHasExistingCoreSceneInput}
