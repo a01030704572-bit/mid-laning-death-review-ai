@@ -30,7 +30,7 @@ function loadTypeScriptModule(relativePath) {
   return loadedModule.exports;
 }
 
-const { rankMatchScenes, SCENE_SCORING_RULES } = loadTypeScriptModule(
+const { rankMatchScenes, clusterScenes, SCENE_SCORING_RULES } = loadTypeScriptModule(
   "lib/riot/matchSceneRanker.ts"
 );
 
@@ -238,14 +238,122 @@ test("maxTopScenes limits top scene count", () => {
   const report = rank(
     [
       makeCandidate({ id: "one", type: "jungle_gank_death_candidate" }),
-      makeCandidate({ id: "two", type: "solo_kill_candidate" }),
-      makeCandidate({ id: "three", type: "tempo_loss_candidate" }),
+      makeCandidate({ id: "two", type: "solo_kill_candidate", gameTimeSec: 700 }),
+      makeCandidate({ id: "three", type: "tempo_loss_candidate", gameTimeSec: 900 }),
     ],
     { maxTopScenes: 2 }
   );
 
   assert.equal(report.rankedScenes.length, 3);
   assert.equal(report.topScenes.length, 2);
+});
+
+test("nearby scenes within cluster window become one bundle with highest score representative", () => {
+  const report = rank([
+    makeCandidate({
+      id: "lower-782",
+      type: "death_review_candidate",
+      confidence: "medium",
+      gameTimeSec: 782,
+    }),
+    makeCandidate({
+      id: "higher-800",
+      type: "jungle_gank_death_candidate",
+      confidence: "high",
+      gameTimeSec: 800,
+      riskTagSeeds: ["ENEMY_JUNGLER_UNKNOWN", "NO_RIVER_VISION"],
+      reasonKo: "enemy jungle gank duplicate candidate",
+    }),
+  ]);
+
+  assert.equal(report.sceneBundles.length, 1);
+  assert.equal(report.sceneBundles[0].representative.sceneId, "higher-800");
+  assert.deepEqual(
+    report.sceneBundles[0].nearby.map((scene) => scene.sceneId),
+    ["lower-782"]
+  );
+  assert.deepEqual(
+    report.topScenes.map((scene) => scene.sceneId),
+    ["higher-800"]
+  );
+});
+
+test("scenes outside the cluster window stay in separate bundles", () => {
+  const report = rank([
+    makeCandidate({
+      id: "scene-782",
+      type: "death_review_candidate",
+      gameTimeSec: 782,
+    }),
+    makeCandidate({
+      id: "scene-820",
+      type: "no_flash_fight_candidate",
+      gameTimeSec: 820,
+      riskTagSeeds: ["NO_FLASH_WINDOW"],
+    }),
+  ]);
+
+  assert.equal(report.sceneBundles.length, 2);
+  assert.deepEqual(
+    report.sceneBundles.map((bundle) => bundle.representative.sceneId).sort(),
+    ["scene-782", "scene-820"].sort()
+  );
+});
+
+test("same timestamp nearby multi-type scenes become same_event_multi_type bundle", () => {
+  const report = rank([
+    makeCandidate({
+      id: "scene-782",
+      type: "death_review_candidate",
+      gameTimeSec: 782,
+    }),
+    makeCandidate({
+      id: "scene-784",
+      type: "jungle_gank_death_candidate",
+      gameTimeSec: 784,
+      riskTagSeeds: ["ENEMY_JUNGLER_UNKNOWN"],
+      reasonKo: "enemy jungle nearby",
+    }),
+    makeCandidate({
+      id: "scene-785",
+      type: "unsafe_warding_candidate",
+      gameTimeSec: 785,
+    }),
+  ]);
+
+  assert.equal(report.sceneBundles.length, 1);
+  assert.equal(report.sceneBundles[0].clusterType, "same_event_multi_type");
+  assert.equal(report.sceneBundles[0].startTimeSec, 782);
+  assert.equal(report.sceneBundles[0].endTimeSec, 785);
+});
+
+test("empty scenes return empty scene bundles and top scenes", () => {
+  const report = rank([]);
+
+  assert.deepEqual(report.sceneBundles, []);
+  assert.deepEqual(report.topScenes, []);
+});
+
+test("solo kill and post-kill conversion nearby stay separate when lessons differ", () => {
+  const report = rank([
+    makeCandidate({
+      id: "solo-500",
+      type: "solo_kill_candidate",
+      gameTimeSec: 500,
+    }),
+    makeCandidate({
+      id: "conversion-530",
+      type: "post_kill_conversion_candidate",
+      gameTimeSec: 530,
+      riskTagSeeds: ["POST_KILL_ESCAPE_RISK"],
+    }),
+  ]);
+
+  assert.equal(report.sceneBundles.length, 2);
+  assert.deepEqual(
+    report.sceneBundles.map((bundle) => bundle.representative.sceneId).sort(),
+    ["conversion-530", "solo-500"].sort()
+  );
 });
 
 test("rankedScenes remains full score-sorted list while subsets are curated", () => {

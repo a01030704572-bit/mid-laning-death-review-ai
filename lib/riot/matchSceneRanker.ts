@@ -10,12 +10,15 @@ import type {
   MatchReviewReport,
   RankedReviewScene,
   RankMatchScenesInput,
+  SceneBundle,
   SceneValence,
   StrengthSignal,
 } from "@/types/matchReview";
 
 const ANALYSIS_VERSION = "level-8-b.match-scene-ranker.v1";
 const PURE_GENERATED_AT = "1970-01-01T00:00:00.000Z";
+const CLUSTER_WINDOW_SEC = 30;
+const SAME_EVENT_WINDOW_SEC = 5;
 
 type EvidenceScoringRule = {
   id: string;
@@ -612,6 +615,110 @@ function selectCuratedTopScenes(
   return selected;
 }
 
+function isPostKillFollowUpScene(scene: RankedReviewScene) {
+  return (
+    scene.autoSceneType === "post_kill_conversion_candidate" ||
+    scene.autoSceneType === "objective_setup_failure_candidate" ||
+    scene.autoSceneType === "tempo_loss_candidate" ||
+    scene.autoSceneType === "wave_management_error_candidate" ||
+    scene.autoSceneType === "blind_roaming_candidate" ||
+    scene.autoSceneType === "poor_resource_management_candidate" ||
+    scene.primaryScenarioId === "successful_solo_kill_poor_conversion" ||
+    scene.primaryScenarioId === "overstay_after_wave_crash" ||
+    scene.primaryScenarioId === "missed_reset_timing" ||
+    scene.primaryScenarioId === "poor_wave_state_before_roaming"
+  );
+}
+
+function shouldSeparateSceneLesson(
+  group: RankedReviewScene[],
+  nextScene: RankedReviewScene
+) {
+  const hasSoloKill = group.some(
+    (scene) => scene.autoSceneType === "solo_kill_candidate"
+  );
+  const nextIsSoloKill = nextScene.autoSceneType === "solo_kill_candidate";
+  const hasFollowUp = group.some(isPostKillFollowUpScene);
+  const nextIsFollowUp = isPostKillFollowUpScene(nextScene);
+
+  if (!((hasSoloKill && nextIsFollowUp) || (hasFollowUp && nextIsSoloKill))) {
+    return false;
+  }
+
+  return group.every((scene) => scene.gameTimeSec !== nextScene.gameTimeSec);
+}
+
+function buildSceneBundle(group: RankedReviewScene[]): SceneBundle {
+  const sortedByScore = [...group].sort(
+    (left, right) =>
+      right.reviewWorthinessScore - left.reviewWorthinessScore ||
+      left.gameTimeSec - right.gameTimeSec ||
+      left.sceneId.localeCompare(right.sceneId)
+  );
+  const representative = sortedByScore[0];
+  const nearby = sortedByScore.slice(1);
+  const times = group.map((scene) => scene.gameTimeSec);
+  const startTimeSec = Math.min(...times);
+  const endTimeSec = Math.max(...times);
+  const clusterType =
+    group.length === 1
+      ? "single"
+      : group.every(
+          (scene) =>
+            Math.abs(scene.gameTimeSec - representative.gameTimeSec) <=
+            SAME_EVENT_WINDOW_SEC
+        )
+        ? "same_event_multi_type"
+        : "sequential_events";
+
+  return {
+    representative,
+    nearby,
+    clusterType,
+    startTimeSec,
+    endTimeSec,
+  };
+}
+
+export function clusterScenes(scenes: RankedReviewScene[]): SceneBundle[] {
+  if (scenes.length === 0) return [];
+
+  const sortedScenes = [...scenes].sort(
+    (left, right) =>
+      left.gameTimeSec - right.gameTimeSec ||
+      right.reviewWorthinessScore - left.reviewWorthinessScore ||
+      left.sceneId.localeCompare(right.sceneId)
+  );
+  const groups: RankedReviewScene[][] = [];
+
+  for (const scene of sortedScenes) {
+    const currentGroup = groups[groups.length - 1];
+    const firstScene = currentGroup?.[0];
+
+    if (
+      !currentGroup ||
+      !firstScene ||
+      scene.gameTimeSec - firstScene.gameTimeSec > CLUSTER_WINDOW_SEC ||
+      shouldSeparateSceneLesson(currentGroup, scene)
+    ) {
+      groups.push([scene]);
+      continue;
+    }
+
+    currentGroup.push(scene);
+  }
+
+  return groups
+    .map(buildSceneBundle)
+    .sort(
+      (left, right) =>
+        right.representative.reviewWorthinessScore -
+          left.representative.reviewWorthinessScore ||
+        left.representative.gameTimeSec - right.representative.gameTimeSec ||
+        left.representative.sceneId.localeCompare(right.representative.sceneId)
+    );
+}
+
 function buildStrengthSignals(scenes: RankedReviewScene[]): StrengthSignal[] {
   const signals: StrengthSignal[] = [];
   const seen = new Set<string>();
@@ -646,12 +753,10 @@ export function rankMatchScenes(input: RankMatchScenesInput): MatchReviewReport 
     );
   const improvementScenes = selectImprovementScenes(rankedScenes);
   const strengthScenes = selectStrengthScenes(rankedScenes);
-  const topScenes = selectCuratedTopScenes(
-    rankedScenes,
-    improvementScenes,
-    strengthScenes,
-    maxTopScenes
-  );
+  const sceneBundles = clusterScenes(rankedScenes);
+  const topScenes = sceneBundles
+    .map((bundle) => bundle.representative)
+    .slice(0, maxTopScenes);
   const habitSignals = uniqueHabitSignals(rankedScenes);
   const weaknessSignals = uniqueHabitSignals(improvementScenes);
   const strengthSignals = buildStrengthSignals(strengthScenes);
@@ -666,6 +771,7 @@ export function rankMatchScenes(input: RankMatchScenesInput): MatchReviewReport 
     improvementScenes,
     strengthScenes,
     topScenes,
+    sceneBundles,
     habitSignals,
     weaknessSignals,
     strengthSignals,

@@ -59,6 +59,14 @@ export type RankedReviewScene = {
   habitSignals: HabitSignal[];
 };
 
+export type SceneBundle = {
+  representative: RankedReviewScene;
+  nearby: RankedReviewScene[];
+  clusterType: "single" | "same_event_multi_type" | "sequential_events";
+  startTimeSec?: number;
+  endTimeSec?: number;
+};
+
 export type MatchReviewReport = {
   matchId: string;
   puuid: string;
@@ -69,6 +77,7 @@ export type MatchReviewReport = {
   improvementScenes: RankedReviewScene[];
   strengthScenes: RankedReviewScene[];
   topScenes: RankedReviewScene[];
+  sceneBundles?: SceneBundle[];
   habitSignals: HabitSignal[];
   weaknessSignals: HabitSignal[];
   strengthSignals: StrengthSignal[];
