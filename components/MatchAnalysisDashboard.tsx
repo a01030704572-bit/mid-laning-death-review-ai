@@ -2,6 +2,7 @@ import RankedSceneCard from "@/components/RankedSceneCard";
 import type {
   MatchReviewReport,
   RankedReviewScene,
+  SceneBundle,
 } from "@/types/matchReview";
 
 type MatchAnalysisDashboardProps = {
@@ -16,7 +17,9 @@ type SceneSectionProps = {
   scenes: RankedReviewScene[];
   emptyText: string;
   selectedScene: RankedReviewScene | null;
+  sceneBundlesByRepresentative: Map<string, SceneBundle>;
   onSelectScene: (scene: RankedReviewScene) => void;
+  showBundleSummary?: boolean;
 };
 
 function SceneSection({
@@ -25,7 +28,9 @@ function SceneSection({
   scenes,
   emptyText,
   selectedScene,
+  sceneBundlesByRepresentative,
   onSelectScene,
+  showBundleSummary = false,
 }: SceneSectionProps) {
   return (
     <section className="space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
@@ -44,6 +49,8 @@ function SceneSection({
             <RankedSceneCard
               key={`${title}-${scene.sceneId}`}
               scene={scene}
+              sceneBundle={sceneBundlesByRepresentative.get(scene.sceneId)}
+              showBundleSummary={showBundleSummary}
               isSelected={selectedScene?.sceneId === scene.sceneId}
               onClick={() => onSelectScene(scene)}
             />
@@ -64,6 +71,12 @@ export default function MatchAnalysisDashboard({
   const improvementScenes = report.improvementScenes.slice(0, 5);
   const strengthScenes = report.strengthScenes.slice(0, 3);
   const topScenes = report.topScenes.slice(0, 5);
+  const sceneBundlesByRepresentative = new Map(
+    (report.sceneBundles ?? []).map((sceneBundle) => [
+      sceneBundle.representative.sceneId,
+      sceneBundle,
+    ])
+  );
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
@@ -88,6 +101,7 @@ export default function MatchAnalysisDashboard({
           scenes={improvementScenes}
           emptyText="개선 후보로 분리된 장면이 없습니다."
           selectedScene={selectedScene}
+          sceneBundlesByRepresentative={sceneBundlesByRepresentative}
           onSelectScene={onSelectScene}
         />
         <SceneSection
@@ -96,6 +110,7 @@ export default function MatchAnalysisDashboard({
           scenes={strengthScenes}
           emptyText="강점 후보로 분리된 장면이 없습니다."
           selectedScene={selectedScene}
+          sceneBundlesByRepresentative={sceneBundlesByRepresentative}
           onSelectScene={onSelectScene}
         />
         <SceneSection
@@ -104,6 +119,8 @@ export default function MatchAnalysisDashboard({
           scenes={topScenes}
           emptyText="분석된 장면이 없습니다."
           selectedScene={selectedScene}
+          sceneBundlesByRepresentative={sceneBundlesByRepresentative}
+          showBundleSummary
           onSelectScene={onSelectScene}
         />
       </div>

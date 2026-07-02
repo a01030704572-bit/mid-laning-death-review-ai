@@ -1,7 +1,13 @@
-import type { RankedReviewScene, SceneValence } from "@/types/matchReview";
+import type {
+  RankedReviewScene,
+  SceneBundle,
+  SceneValence,
+} from "@/types/matchReview";
 
 type RankedSceneCardProps = {
   scene: RankedReviewScene;
+  sceneBundle?: SceneBundle;
+  showBundleSummary?: boolean;
   isSelected: boolean;
   onClick: () => void;
 };
@@ -34,12 +40,41 @@ function getEvidenceBullets(scene: RankedReviewScene) {
   return summaries.filter(Boolean).slice(0, 3);
 }
 
+function sceneBundleLabelKo(sceneBundle: SceneBundle) {
+  switch (sceneBundle.clusterType) {
+    case "same_event_multi_type":
+      return "같은 순간의 관련 후보";
+    case "sequential_events":
+      return "연속 판단 후보";
+    case "single":
+      return null;
+  }
+}
+
+function hasMixedValence(sceneBundle: SceneBundle) {
+  const bundledScenes = [sceneBundle.representative, ...sceneBundle.nearby];
+  const hasStrength = bundledScenes.some(
+    (bundledScene) => bundledScene.sceneValence === "good_decision"
+  );
+  const hasImprovement = bundledScenes.some(
+    (bundledScene) => bundledScene.sceneValence !== "good_decision"
+  );
+
+  return hasStrength && hasImprovement;
+}
+
 export default function RankedSceneCard({
   scene,
+  sceneBundle,
+  showBundleSummary = false,
   isSelected,
   onClick,
 }: RankedSceneCardProps) {
   const evidenceBullets = getEvidenceBullets(scene);
+  const nearbyScenes = sceneBundle?.nearby ?? [];
+  const sceneBundleLabel = sceneBundle ? sceneBundleLabelKo(sceneBundle) : null;
+  const shouldShowBundleSummary =
+    showBundleSummary && sceneBundle && nearbyScenes.length > 0;
 
   return (
     <button
@@ -84,6 +119,31 @@ export default function RankedSceneCard({
             <li key={summary}>{summary}</li>
           ))}
         </ul>
+      )}
+
+      {shouldShowBundleSummary && (
+        <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {sceneBundleLabel && (
+              <span className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-600">
+                {sceneBundleLabel}
+              </span>
+            )}
+            <p className="text-xs font-semibold text-zinc-700">
+              근처 관련 후보 {nearbyScenes.length}개가 함께 묶였습니다.
+            </p>
+          </div>
+          {sceneBundle && hasMixedValence(sceneBundle) && (
+            <p className="mt-2 text-xs leading-5 text-zinc-600">
+              이 장면은 강점과 개선 체크가 함께 있는 복합 장면입니다.
+            </p>
+          )}
+          <ul className="mt-2 space-y-1 text-xs leading-5 text-zinc-500">
+            {nearbyScenes.slice(0, 3).map((nearbyScene) => (
+              <li key={nearbyScene.sceneId}>- {nearbyScene.displayNameKo}</li>
+            ))}
+          </ul>
+        </div>
       )}
     </button>
   );
