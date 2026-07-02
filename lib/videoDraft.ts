@@ -1,4 +1,7 @@
 import type {
+  VideoDraftFieldEvidenceSourceDetail,
+  VideoDraftFieldEvidenceSources,
+  VideoDraftMapEvidenceSource,
   LockedRiotVideoContext,
   VideoReviewDraft,
 } from "@/types/videoDraft";
@@ -154,6 +157,18 @@ const POST_PUSH_INTENTS = new Set<PostPushIntent>([
   "stay_for_cs",
   "escape_or_disengage",
 ]);
+const VIDEO_DRAFT_MAP_EVIDENCE_SOURCES = new Set<VideoDraftMapEvidenceSource>([
+  "direct_screen",
+  "minimap",
+  "riot_event",
+  "inferred",
+  "unknown",
+]);
+const TRUSTED_MAP_EVIDENCE_SOURCES = new Set<VideoDraftMapEvidenceSource>([
+  "direct_screen",
+  "minimap",
+  "riot_event",
+]);
 
 export class InvalidVideoDraftResponseError extends Error {}
 
@@ -298,6 +313,16 @@ Extraction order:
 4. Mention jungle/support cover only when visible in the clip or explicitly stated in the scene note.
 5. Put every unclear input in uncertainFacts instead of guessing. Prefer "확인 필요".
 
+Map and jungle evidence rules:
+- If you claim jungle position, ally jungle cover, movement side, fight direction, or support location, state the evidence source in fieldEvidenceSources.
+- Use source "direct_screen" only when the relevant champion/action is visible on the main screen.
+- Use source "minimap" only when the minimap clearly shows the relevant champion or movement.
+- Use source "riot_event" only when locked Riot context key events directly support the claim.
+- Use source "inferred" only for reasoning from wave state, pathing, missing champions, or likely macro intent.
+- Use source "unknown" when the evidence source is unclear.
+- Do not confidently fill enemyJungleInfo, allyJungleCover, or movementDirection from inferred or unknown evidence. If minimap is unclear, omit the field and write "확인 필요" in uncertainFacts.
+- Safe non-jungle observations like wave state, roam direction, fight join, recall, and low HP can still be extracted when visible.
+
 Accuracy rules:
 - Treat every conclusion as a hypothesis.
 - Do not overclaim champion names, exact cooldowns, items, gold, jungle position, objective state, or objective timing unless clearly visible or stated in the note.
@@ -341,6 +366,11 @@ Return ONLY valid JSON with this exact structure:
     "allyJungleCover": "same_side_near_mid | same_side_but_far | opposite_side | dead_or_recalled | resetting (optional)",
     "postPushIntent": "take_plate | roam | recall | ward | invade_with_jungle | hover_side_lane | stay_for_cs | escape_or_disengage (optional)"
   },
+  "fieldEvidenceSources": {
+    "movementDirection": { "source": "direct_screen | minimap | riot_event | inferred | unknown", "detail": "short reason (optional)" },
+    "enemyJungleInfo": { "source": "direct_screen | minimap | riot_event | inferred | unknown", "championName": "enemy jungler name if visible or from Riot roster (optional)", "detail": "short reason (optional)" },
+    "allyJungleCover": { "source": "direct_screen | minimap | riot_event | inferred | unknown", "championName": "ally jungler name if visible or from Riot roster (optional)", "detail": "short reason (optional)" }
+  },
   "confidenceNote": "Korean explanation of what is visible and what still needs confirmation"
 }`;
 }
@@ -368,6 +398,167 @@ function acceptedValue<T extends string>(value: unknown, allowed: Set<T>) {
   return typeof value === "string" && allowed.has(value as T)
     ? (value as T)
     : undefined;
+}
+
+function normalizeFieldEvidenceSourceDetail(
+  value: unknown
+): VideoDraftFieldEvidenceSourceDetail | undefined {
+  if (typeof value === "string") {
+    const source = acceptedValue(value, VIDEO_DRAFT_MAP_EVIDENCE_SOURCES);
+    return source ? { source } : undefined;
+  }
+  const record = asRecord(value);
+  const source = acceptedValue(record.source, VIDEO_DRAFT_MAP_EVIDENCE_SOURCES);
+  if (!source) return undefined;
+  return {
+    source,
+    championName: normalizeString(record.championName) || undefined,
+    detail: normalizeString(record.detail) || undefined,
+  };
+}
+
+function normalizeFieldEvidenceSources(value: unknown): VideoDraftFieldEvidenceSources {
+  const source = asRecord(value);
+  return {
+    movementDirection: normalizeFieldEvidenceSourceDetail(source.movementDirection),
+    enemyJungleInfo: normalizeFieldEvidenceSourceDetail(source.enemyJungleInfo),
+    allyJungleCover: normalizeFieldEvidenceSourceDetail(source.allyJungleCover),
+  };
+}
+
+function compactFieldEvidenceSources(
+  sources: VideoDraftFieldEvidenceSources
+): VideoDraftFieldEvidenceSources | undefined {
+  const compacted = Object.fromEntries(
+    Object.entries(sources).filter(([, value]) => Boolean(value))
+  ) as VideoDraftFieldEvidenceSources;
+  return Object.keys(compacted).length > 0 ? compacted : undefined;
+}
+
+function hasTrustedMapEvidence(
+  detail: VideoDraftFieldEvidenceSourceDetail | VideoDraftMapEvidenceSource | undefined
+) {
+  const source = typeof detail === "string" ? detail : detail?.source;
+  return Boolean(source && TRUSTED_MAP_EVIDENCE_SOURCES.has(source));
+}
+
+function rosterParticipantMatches(
+  participant: NonNullable<LockedRiotVideoContext["roster"]>[number],
+  championName: string | undefined,
+  side: "ally" | "enemy",
+  role: "jungle" | "support"
+) {
+  return (
+    participant.side === side &&
+    participant.role === role &&
+    (!championName ||
+      normalizeChampionName(participant.championName) ===
+        normalizeChampionName(championName))
+  );
+}
+
+function hasRosterRoleEvidence({
+  detail,
+  roster,
+  side,
+  role,
+}: {
+  detail: VideoDraftFieldEvidenceSourceDetail | VideoDraftMapEvidenceSource | undefined;
+  roster?: LockedRiotVideoContext["roster"];
+  side: "ally" | "enemy";
+  role: "jungle" | "support";
+}) {
+  if (!roster?.length || typeof detail === "string") return false;
+  return roster.some((participant) =>
+    rosterParticipantMatches(participant, detail?.championName, side, role)
+  );
+}
+
+function buildWeakMapEvidenceNote(fieldLabel: string) {
+  return `${fieldLabel}는 영상 근거가 추론 또는 불명확한 상태라 구조화 입력에는 넣지 않았습니다. 미니맵/화면/Riot 이벤트로 직접 확인이 필요합니다.`;
+}
+
+function hasAnyText(value: string, patterns: string[]) {
+  const normalized = value.toLowerCase();
+  return patterns.some((pattern) => normalized.includes(pattern.toLowerCase()));
+}
+
+function hasUncertaintyCue(value: string) {
+  return hasAnyText(value, [
+    "unclear",
+    "unknown",
+    "uncertain",
+    "check",
+    "confirm",
+    "need confirmation",
+    "확인 필요",
+    "확인해야",
+    "확인해주세요",
+    "불확실",
+    "불명확",
+    "모름",
+    "모르",
+    "정확",
+  ]);
+}
+
+function buildVerificationText(
+  source: Record<string, unknown>,
+  uncertainFacts: string[],
+  confidenceNote: string
+) {
+  return [
+    ...uncertainFacts,
+    confidenceNote,
+    normalizeString(source.verificationNote),
+    ...normalizeStringArray(source.verificationNotes),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function hasMapUncertaintyConflict(
+  text: string,
+  field: "enemyJungleInfo" | "allyJungleCover" | "movementDirection"
+) {
+  if (!hasUncertaintyCue(text)) return false;
+  if (field === "allyJungleCover") {
+    return hasAnyText(text, [
+      "ally jungle",
+      "allied jungle",
+      "ally jungler",
+      "jungle cover",
+      "cover",
+      "hecarim",
+      "아군 정글",
+      "우리 정글",
+      "정글 커버",
+      "커버",
+      "헤카림",
+    ]);
+  }
+  if (field === "enemyJungleInfo") {
+    return hasAnyText(text, [
+      "enemy jungle",
+      "enemy jungler",
+      "jungle location",
+      "xin zhao",
+      "상대 정글",
+      "적 정글",
+      "정글 위치",
+      "신 짜오",
+      "신짜오",
+    ]);
+  }
+  return hasAnyText(text, [
+    "movement direction",
+    "fight direction",
+    "movement side",
+    "이동 방향",
+    "교전 방향",
+    "이동 쪽",
+    "진입 방향",
+  ]);
 }
 
 function ensureSentence(value: string) {
@@ -628,6 +819,9 @@ export function parseVideoReviewDraft(
 
   const source = asRecord(parsed);
   const rawFields = asRecord(source.suggestedFields);
+  const fieldEvidenceSources = normalizeFieldEvidenceSources(
+    source.fieldEvidenceSources
+  );
   const scenario = acceptedValue(source.suggestedScenarioType, SCENARIO_TYPES);
   const assessment = acceptedValue(
     source.suggestedSceneOutcomeAssessment,
@@ -636,6 +830,12 @@ export function parseVideoReviewDraft(
   const summary = normalizeString(source.summary) || "장면의 일부 행동이 보입니다";
   const keyFacts = normalizeStringArray(source.keyFacts);
   const uncertainFacts = normalizeStringArray(source.uncertainFacts);
+  const rawConfidenceNote = normalizeString(source.confidenceNote);
+  const verificationText = buildVerificationText(
+    source,
+    uncertainFacts,
+    rawConfidenceNote
+  );
   const championConflictNotes = lockedChampionConflictNotes(
     source,
     lockedRiotContext
@@ -648,7 +848,7 @@ export function parseVideoReviewDraft(
           "교전 결과와 이후 전환",
         ]
       : uncertainFacts;
-  const finalUncertainFacts = Array.from(
+  let finalUncertainFacts = Array.from(
     new Set([...championConflictNotes, ...normalizedUncertainFacts])
   ).slice(0, 8);
   const suggestedFreeDescription = normalizeString(
@@ -692,6 +892,74 @@ export function parseVideoReviewDraft(
       POST_PUSH_INTENTS
     ),
   };
+  const weakMapEvidenceNotes: string[] = [];
+  if (
+    suggestedFields.movementDirection &&
+    (!hasTrustedMapEvidence(fieldEvidenceSources.movementDirection) ||
+      hasMapUncertaintyConflict(verificationText, "movementDirection"))
+  ) {
+    suggestedFields.movementDirection = undefined;
+    weakMapEvidenceNotes.push(buildWeakMapEvidenceNote("이동 방향/교전 방향"));
+  }
+  if (
+    suggestedFields.enemyJungleInfo &&
+    (!hasTrustedMapEvidence(fieldEvidenceSources.enemyJungleInfo) ||
+      hasMapUncertaintyConflict(verificationText, "enemyJungleInfo"))
+  ) {
+    suggestedFields.enemyJungleInfo = undefined;
+    weakMapEvidenceNotes.push(buildWeakMapEvidenceNote("상대 정글 위치"));
+  }
+  if (
+    suggestedFields.enemyJungleInfo &&
+    fieldEvidenceSources.enemyJungleInfo &&
+    typeof fieldEvidenceSources.enemyJungleInfo !== "string" &&
+    fieldEvidenceSources.enemyJungleInfo.source === "minimap" &&
+    fieldEvidenceSources.enemyJungleInfo.championName &&
+    lockedRiotContext?.roster?.length &&
+    !hasRosterRoleEvidence({
+      detail: fieldEvidenceSources.enemyJungleInfo,
+      roster: lockedRiotContext.roster,
+      side: "enemy",
+      role: "jungle",
+    })
+  ) {
+    suggestedFields.enemyJungleInfo = undefined;
+    weakMapEvidenceNotes.push(
+      "미니맵에서 본 챔피언이 Riot roster 기준 상대 정글로 확인되지 않아 상대 정글 위치 입력은 보류했습니다."
+    );
+  }
+  if (
+    suggestedFields.allyJungleCover &&
+    (!hasTrustedMapEvidence(fieldEvidenceSources.allyJungleCover) ||
+      hasMapUncertaintyConflict(verificationText, "allyJungleCover"))
+  ) {
+    suggestedFields.allyJungleCover = undefined;
+    weakMapEvidenceNotes.push(buildWeakMapEvidenceNote("아군 정글 커버"));
+  }
+  if (
+    suggestedFields.allyJungleCover &&
+    fieldEvidenceSources.allyJungleCover &&
+    typeof fieldEvidenceSources.allyJungleCover !== "string" &&
+    fieldEvidenceSources.allyJungleCover.source === "minimap" &&
+    fieldEvidenceSources.allyJungleCover.championName &&
+    lockedRiotContext?.roster?.length &&
+    !hasRosterRoleEvidence({
+      detail: fieldEvidenceSources.allyJungleCover,
+      roster: lockedRiotContext.roster,
+      side: "ally",
+      role: "jungle",
+    })
+  ) {
+    suggestedFields.allyJungleCover = undefined;
+    weakMapEvidenceNotes.push(
+      "미니맵에서 본 챔피언이 Riot roster 기준 아군 정글로 확인되지 않아 아군 정글 커버 입력은 보류했습니다."
+    );
+  }
+  if (weakMapEvidenceNotes.length > 0) {
+    finalUncertainFacts = Array.from(
+      new Set([...weakMapEvidenceNotes, ...finalUncertainFacts])
+    ).slice(0, 8);
+  }
   if (shouldDropObjectiveFields({ scenario, currentOutcome })) {
     suggestedFields.objectiveType = undefined;
     suggestedFields.timeToObjective = undefined;
@@ -703,6 +971,8 @@ export function parseVideoReviewDraft(
   ) {
     suggestedFields.postPushIntent = undefined;
   }
+  const compactedFieldEvidenceSources =
+    compactFieldEvidenceSources(fieldEvidenceSources);
 
   return {
     suggestedScenarioType: scenario ?? null,
@@ -728,15 +998,18 @@ export function parseVideoReviewDraft(
     suggestedFields: Object.fromEntries(
       Object.entries(suggestedFields).filter(([, value]) => value !== undefined)
     ),
+    ...(compactedFieldEvidenceSources
+      ? { fieldEvidenceSources: compactedFieldEvidenceSources }
+      : {}),
     confidenceNote:
       championConflictNotes.length > 0
         ? [
-            normalizeString(source.confidenceNote),
+            rawConfidenceNote,
             "Riot 기준 챔피언 정보와 영상 추정이 충돌할 수 있어 챔피언명은 Riot 정보를 우선해야 합니다.",
           ]
             .filter(Boolean)
             .join(" ")
-        : normalizeString(source.confidenceNote) ||
+        : rawConfidenceNote ||
           "영상만으로 확정하기 어려운 정보는 직접 확인해주세요.",
   };
 }

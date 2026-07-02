@@ -529,6 +529,9 @@ test("video draft prompt extracts existing form inputs instead of generic coachi
   assert.match(prompt, /currentOutcome/);
   assert.match(prompt, /self-review hypothesis/);
   assert.match(prompt, /visibleFacts/);
+  assert.match(prompt, /fieldEvidenceSources/);
+  assert.match(prompt, /direct_screen \| minimap \| riot_event \| inferred \| unknown/);
+  assert.match(prompt, /Do not confidently fill enemyJungleInfo/);
   assert.match(prompt, /교전 자체에 대한 판단은 필요/);
 });
 
@@ -584,6 +587,9 @@ test("locked Riot context conflict is recorded without blocking safe fields", ()
       suggestedFields: {
         laneStateDetail: "slow_pushing_to_enemy",
         movementDirection: "top_side",
+      },
+      fieldEvidenceSources: {
+        movementDirection: { source: "direct_screen" },
       },
       confidenceNote: "일부 챔피언 식별은 불확실합니다.",
     }),
@@ -642,7 +648,7 @@ test("locked Riot roster maps visible allied jungler conflict instead of player 
   );
 
   assert.equal(draft.suggestedFields.laneStateDetail, "slow_pushing_to_enemy");
-  assert.equal(draft.suggestedFields.movementDirection, "top_side");
+  assert.equal(draft.suggestedFields.movementDirection, undefined);
   assert.ok(
     draft.uncertainFacts.some(
       (fact) =>
@@ -687,6 +693,185 @@ test("locked Riot roster reports champion names not present in roster", () => {
         fact.includes("신원 확정이 필요")
     )
   );
+});
+
+test("map and jungle fields with inferred or unknown source are downgraded", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      summary: "Player moved after pushing mid and jungle location was guessed.",
+      keyFacts: ["Mid wave was pushed."],
+      uncertainFacts: [],
+      suggestedFreeDescription:
+        "미드 웨이브를 민 뒤 이동한 장면입니다. 정글 위치는 직접 확인이 필요합니다.",
+      suggestedFields: {
+        laneStateDetail: "slow_pushing_to_enemy",
+        movementDirection: "bot_side",
+        enemyJungleInfo: "seen_same_side",
+        allyJungleCover: "opposite_side",
+        postPushIntent: "roam",
+      },
+      fieldEvidenceSources: {
+        movementDirection: { source: "unknown" },
+        enemyJungleInfo: { source: "inferred", championName: "Xin Zhao" },
+        allyJungleCover: "unknown",
+      },
+      confidenceNote: "Jungle position was inferred.",
+    })
+  );
+
+  assert.equal(draft.suggestedFields.laneStateDetail, "slow_pushing_to_enemy");
+  assert.equal(draft.suggestedFields.postPushIntent, "roam");
+  assert.equal(draft.suggestedFields.movementDirection, undefined);
+  assert.equal(draft.suggestedFields.enemyJungleInfo, undefined);
+  assert.equal(draft.suggestedFields.allyJungleCover, undefined);
+  assert.ok(
+    draft.uncertainFacts.some((fact) => fact.includes("상대 정글 위치"))
+  );
+});
+
+test("ally jungle cover is downgraded when uncertainty says Hecarim cover is unclear", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      summary: "Hecarim appears near the fight, but exact cover is unclear.",
+      keyFacts: ["Mid wave was pushed before moving."],
+      uncertainFacts: [
+        "아군 정글 헤카림의 정확한 위치와 커버 가능 여부는 확인 필요",
+      ],
+      suggestedFreeDescription:
+        "미드 웨이브를 민 뒤 움직인 장면입니다. 헤카림 위치와 커버 가능 여부는 직접 확인이 필요합니다.",
+      suggestedFields: {
+        laneStateDetail: "slow_pushing_to_enemy",
+        allyJungleCover: "same_side_near_mid",
+        postPushIntent: "roam",
+      },
+      fieldEvidenceSources: {
+        allyJungleCover: {
+          source: "minimap",
+          championName: "Hecarim",
+        },
+      },
+      confidenceNote: "Hecarim cover needs confirmation.",
+    }),
+    "",
+    {
+      playerChampion: "Locke",
+      enemyMidChampion: "Fizz",
+      roster: [
+        { championName: "Locke", side: "ally", role: "mid", isPlayer: true },
+        { championName: "Hecarim", side: "ally", role: "jungle", isPlayer: false },
+        { championName: "Fizz", side: "enemy", role: "mid", isPlayer: false },
+      ],
+    }
+  );
+
+  assert.equal(draft.suggestedFields.laneStateDetail, "slow_pushing_to_enemy");
+  assert.equal(draft.suggestedFields.postPushIntent, "roam");
+  assert.equal(draft.suggestedFields.allyJungleCover, undefined);
+  assert.ok(
+    draft.uncertainFacts.some((fact) => fact.includes("아군 정글 커버"))
+  );
+});
+
+test("enemy jungle info is downgraded when uncertainty says enemy jungle location is unclear", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      summary: "Enemy jungle same-side claim needs confirmation.",
+      keyFacts: ["Player moved toward bot side after push."],
+      uncertainFacts: ["상대 정글 위치는 미니맵이 불명확해서 확인 필요"],
+      suggestedFreeDescription:
+        "미드에서 바텀 쪽으로 움직인 장면입니다. 상대 정글 위치는 직접 확인이 필요합니다.",
+      suggestedFields: {
+        enemyJungleInfo: "seen_same_side",
+        laneStateDetail: "slow_pushing_to_enemy",
+      },
+      fieldEvidenceSources: {
+        enemyJungleInfo: {
+          source: "minimap",
+          championName: "Xin Zhao",
+        },
+      },
+      confidenceNote: "Enemy jungle location unclear.",
+    }),
+    "",
+    {
+      playerChampion: "Locke",
+      enemyMidChampion: "Fizz",
+      roster: [
+        { championName: "Locke", side: "ally", role: "mid", isPlayer: true },
+        { championName: "Fizz", side: "enemy", role: "mid", isPlayer: false },
+        { championName: "Xin Zhao", side: "enemy", role: "jungle", isPlayer: false },
+      ],
+    }
+  );
+
+  assert.equal(draft.suggestedFields.laneStateDetail, "slow_pushing_to_enemy");
+  assert.equal(draft.suggestedFields.enemyJungleInfo, undefined);
+  assert.ok(
+    draft.uncertainFacts.some((fact) => fact.includes("상대 정글 위치"))
+  );
+});
+
+test("minimap source with Riot roster enemy jungler allows enemy jungle field", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      summary: "Minimap shows enemy Xin Zhao near bot side.",
+      keyFacts: ["Xin Zhao appears on minimap bot side."],
+      uncertainFacts: [],
+      suggestedFreeDescription:
+        "미니맵에서 상대 정글 신 짜오가 바텀 쪽에 보인 장면입니다. 교전 전 정글 위치는 미니맵 근거로 확인됩니다.",
+      suggestedFields: {
+        enemyJungleInfo: "seen_same_side",
+      },
+      fieldEvidenceSources: {
+        enemyJungleInfo: {
+          source: "minimap",
+          championName: "Xin Zhao",
+          detail: "enemy jungler visible on minimap",
+        },
+      },
+      confidenceNote: "Minimap source.",
+    }),
+    "",
+    {
+      playerChampion: "Locke",
+      enemyMidChampion: "Fizz",
+      roster: [
+        { championName: "Locke", side: "ally", role: "mid", isPlayer: true },
+        { championName: "Hecarim", side: "ally", role: "jungle", isPlayer: false },
+        { championName: "Fizz", side: "enemy", role: "mid", isPlayer: false },
+        { championName: "Xin Zhao", side: "enemy", role: "jungle", isPlayer: false },
+      ],
+    }
+  );
+
+  assert.equal(draft.suggestedFields.enemyJungleInfo, "seen_same_side");
+  assert.equal(draft.fieldEvidenceSources.enemyJungleInfo.source, "minimap");
+});
+
+test("riot_event source allows enemy jungle involvement field", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      summary: "Riot event indicates enemy jungler assisted the kill.",
+      keyFacts: ["Enemy jungler assist appears in Riot event context."],
+      uncertainFacts: [],
+      suggestedFreeDescription:
+        "Riot 이벤트상 상대 정글이 킬 관여한 장면입니다. 화면만으로는 위치를 추가 확인해야 합니다.",
+      suggestedFields: {
+        enemyJungleInfo: "seen_near_mid",
+        laneStateDetail: "neutral_middle",
+      },
+      fieldEvidenceSources: {
+        enemyJungleInfo: {
+          source: "riot_event",
+          championName: "Xin Zhao",
+        },
+      },
+      confidenceNote: "Riot event source.",
+    })
+  );
+
+  assert.equal(draft.suggestedFields.enemyJungleInfo, "seen_near_mid");
+  assert.equal(draft.suggestedFields.laneStateDetail, "neutral_middle");
 });
 
 test("locked Riot context builder keeps payload compact", () => {
@@ -939,7 +1124,7 @@ test("warding death video draft does not include objective fields", () => {
   assert.equal(draft.suggestedFields.objectiveType, undefined);
   assert.equal(draft.suggestedFields.timeToObjective, undefined);
   assert.equal(draft.suggestedFields.objectivePrepAction, undefined);
-  assert.equal(draft.suggestedFields.enemyJungleInfo, "not_seen_recently");
+  assert.equal(draft.suggestedFields.enemyJungleInfo, undefined);
 });
 
 test("death or loss note does not become risky_but_successful by default", () => {

@@ -28,6 +28,26 @@ export type VideoDraftSuggestedFields = {
   postPushIntent?: PostPushIntent;
 };
 
+export type VideoDraftMapEvidenceSource =
+  | "direct_screen"
+  | "minimap"
+  | "riot_event"
+  | "inferred"
+  | "unknown";
+
+export type VideoDraftFieldEvidenceSourceDetail = {
+  source: VideoDraftMapEvidenceSource;
+  championName?: string;
+  detail?: string;
+};
+
+export type VideoDraftFieldEvidenceSources = Partial<
+  Record<
+    "movementDirection" | "enemyJungleInfo" | "allyJungleCover",
+    VideoDraftMapEvidenceSource | VideoDraftFieldEvidenceSourceDetail
+  >
+>;
+
 export type LockedRiotVideoContext = {
   matchId?: string;
   gameTimeSec?: number;
@@ -66,5 +86,6 @@ export type VideoReviewDraft = {
   uncertainFacts: string[];
   suggestedFreeDescription: string;
   suggestedFields: VideoDraftSuggestedFields;
+  fieldEvidenceSources?: VideoDraftFieldEvidenceSources;
   confidenceNote: string;
 };
