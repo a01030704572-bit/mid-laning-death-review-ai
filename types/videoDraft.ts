@@ -43,10 +43,23 @@ export type VideoDraftFieldEvidenceSourceDetail = {
 
 export type VideoDraftFieldEvidenceSources = Partial<
   Record<
-    "movementDirection" | "enemyJungleInfo" | "allyJungleCover",
+    | "movementDirection"
+    | "enemyJungleInfo"
+    | "allyJungleCover"
+    | "currentOutcome"
+    | "objectiveType"
+    | "timeToObjective"
+    | "objectivePrepAction",
     VideoDraftMapEvidenceSource | VideoDraftFieldEvidenceSourceDetail
   >
 >;
+
+export type VideoRiotTimeAlignment = {
+  status: "aligned" | "misaligned" | "unknown";
+  deltaSeconds?: number;
+  reasonKo?: string;
+  warningKo?: string;
+};
 
 export type LockedRiotVideoContext = {
   matchId?: string;
@@ -79,6 +92,7 @@ export type LockedRiotVideoContext = {
 };
 
 export type VideoReviewDraft = {
+  gameTimeSec?: number;
   suggestedScenarioType: ScenarioType | null;
   suggestedSceneOutcomeAssessment: SceneOutcomeAssessment | null;
   summary: string;
@@ -87,5 +101,6 @@ export type VideoReviewDraft = {
   suggestedFreeDescription: string;
   suggestedFields: VideoDraftSuggestedFields;
   fieldEvidenceSources?: VideoDraftFieldEvidenceSources;
+  videoRiotTimeAlignment?: VideoRiotTimeAlignment;
   confidenceNote: string;
 };

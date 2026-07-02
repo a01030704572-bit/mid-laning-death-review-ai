@@ -214,6 +214,11 @@ export default function VideoDraftPanel({
   const suggestedFieldEntries = draft
     ? Object.entries(draft.suggestedFields).filter(([, value]) => value)
     : [];
+  const riotTimeMismatchWarning =
+    draft?.videoRiotTimeAlignment?.status === "misaligned"
+      ? draft.videoRiotTimeAlignment.warningKo ??
+        "Riot evidence may not match this clip."
+      : null;
 
   return (
     <section
@@ -329,6 +334,11 @@ export default function VideoDraftPanel({
             />
           </div>
 
+          {riotTimeMismatchWarning && (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800">
+              {riotTimeMismatchWarning}
+            </p>
+          )}
           {suggestedFieldEntries.length > 0 && (
             <DraftSection title="복기 폼 입력 후보">
               <dl className="space-y-1">

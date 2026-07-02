@@ -874,6 +874,144 @@ test("riot_event source allows enemy jungle involvement field", () => {
   assert.equal(draft.suggestedFields.laneStateDetail, "neutral_middle");
 });
 
+test("video and Riot scene times within 60 seconds are aligned", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      gameTimeSec: 820,
+      summary: "Clip time appears near 13:40.",
+      keyFacts: ["Visible fight near mid."],
+      uncertainFacts: [],
+      suggestedFreeDescription:
+        "13분 40초 근처 미드 교전 장면입니다. Riot 근거 시간과 큰 차이가 없습니다.",
+      suggestedFields: {
+        laneStateDetail: "neutral_middle",
+      },
+      confidenceNote: "Clip timestamp visible.",
+    }),
+    "",
+    { gameTimeSec: 830 }
+  );
+
+  assert.equal(draft.gameTimeSec, 820);
+  assert.equal(draft.videoRiotTimeAlignment.status, "aligned");
+  assert.equal(draft.videoRiotTimeAlignment.deltaSeconds, 10);
+  assert.equal(draft.suggestedFields.laneStateDetail, "neutral_middle");
+});
+
+test("video and Riot scene times more than 60 seconds apart are misaligned", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      gameTimeSec: 740,
+      summary: "Clip time appears near 12:20.",
+      keyFacts: ["Visible fight near river."],
+      uncertainFacts: [],
+      suggestedFreeDescription:
+        "12분 20초 근처 강가 교전 장면입니다. Riot 근거 시간과 차이가 큽니다.",
+      suggestedFields: {
+        laneStateDetail: "slow_pushing_to_enemy",
+      },
+      confidenceNote: "Clip timestamp visible.",
+    }),
+    "",
+    { gameTimeSec: 820 }
+  );
+
+  assert.equal(draft.videoRiotTimeAlignment.status, "misaligned");
+  assert.equal(draft.videoRiotTimeAlignment.deltaSeconds, 80);
+  assert.equal(
+    draft.videoRiotTimeAlignment.warningKo,
+    "Riot evidence may not match this clip."
+  );
+  assert.equal(draft.suggestedFields.laneStateDetail, "slow_pushing_to_enemy");
+});
+
+test("missing video game time returns unknown alignment without failing", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      summary: "Clip has no readable timestamp.",
+      keyFacts: ["Visible lane movement."],
+      uncertainFacts: [],
+      suggestedFreeDescription:
+        "게임 시간이 보이지 않는 장면입니다. Riot 근거와 같은 시간대인지는 확인이 필요합니다.",
+      suggestedFields: {
+        laneStateDetail: "neutral_middle",
+      },
+      confidenceNote: "No readable clip timestamp.",
+    }),
+    "",
+    { gameTimeSec: 820 }
+  );
+
+  assert.equal(draft.gameTimeSec, undefined);
+  assert.equal(draft.videoRiotTimeAlignment.status, "unknown");
+  assert.equal(draft.suggestedFields.laneStateDetail, "neutral_middle");
+});
+
+test("misaligned Riot evidence does not over-confirm jungle kill or objective fields", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      gameTimeSec: 740,
+      summary: "Clip time differs from Riot event window.",
+      keyFacts: ["Visible wave state remains usable."],
+      uncertainFacts: [],
+      suggestedFreeDescription:
+        "영상 시간과 Riot 이벤트 시간이 달라 보입니다. 웨이브 상태는 보이지만 이벤트 확인은 보류해야 합니다.",
+      suggestedFields: {
+        currentOutcome: "ganked_and_died",
+        objectiveType: "dragon",
+        timeToObjective: "under_thirty",
+        objectivePrepAction: "moved_first",
+        enemyJungleInfo: "seen_near_mid",
+        laneStateDetail: "slow_pushing_to_enemy",
+      },
+      fieldEvidenceSources: {
+        currentOutcome: { source: "riot_event" },
+        objectiveType: { source: "riot_event" },
+        timeToObjective: { source: "riot_event" },
+        objectivePrepAction: { source: "riot_event" },
+        enemyJungleInfo: { source: "riot_event", championName: "Xin Zhao" },
+      },
+      confidenceNote: "Riot evidence may not match this clip.",
+    }),
+    "",
+    { gameTimeSec: 820 }
+  );
+
+  assert.equal(draft.videoRiotTimeAlignment.status, "misaligned");
+  assert.equal(draft.suggestedFields.currentOutcome, undefined);
+  assert.equal(draft.suggestedFields.objectiveType, undefined);
+  assert.equal(draft.suggestedFields.timeToObjective, undefined);
+  assert.equal(draft.suggestedFields.objectivePrepAction, undefined);
+  assert.equal(draft.suggestedFields.enemyJungleInfo, undefined);
+  assert.equal(draft.suggestedFields.laneStateDetail, "slow_pushing_to_enemy");
+  assert.ok(
+    draft.uncertainFacts.some((fact) => fact.includes("Riot 이벤트 기반"))
+  );
+});
+
+test("video-only flow does not require Riot alignment", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      gameTimeSec: 740,
+      summary: "Video-only lane movement.",
+      keyFacts: ["Player moves after pushing mid."],
+      uncertainFacts: [],
+      suggestedFreeDescription:
+        "영상만으로 확인한 미드 푸시 이후 이동 장면입니다.",
+      suggestedFields: {
+        laneStateDetail: "slow_pushing_to_enemy",
+        postPushIntent: "roam",
+      },
+      confidenceNote: "Video-only source.",
+    })
+  );
+
+  assert.equal(draft.gameTimeSec, 740);
+  assert.equal(draft.videoRiotTimeAlignment, undefined);
+  assert.equal(draft.suggestedFields.laneStateDetail, "slow_pushing_to_enemy");
+  assert.equal(draft.suggestedFields.postPushIntent, "roam");
+});
+
 test("locked Riot context builder keeps payload compact", () => {
   const context = videoDraftRiotContextModule.buildLockedRiotVideoContext({
     matchId: "KR_123",

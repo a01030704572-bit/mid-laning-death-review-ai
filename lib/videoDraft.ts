@@ -2,6 +2,7 @@ import type {
   VideoDraftFieldEvidenceSourceDetail,
   VideoDraftFieldEvidenceSources,
   VideoDraftMapEvidenceSource,
+  VideoRiotTimeAlignment,
   LockedRiotVideoContext,
   VideoReviewDraft,
 } from "@/types/videoDraft";
@@ -323,6 +324,12 @@ Map and jungle evidence rules:
 - Do not confidently fill enemyJungleInfo, allyJungleCover, or movementDirection from inferred or unknown evidence. If minimap is unclear, omit the field and write "확인 필요" in uncertainFacts.
 - Safe non-jungle observations like wave state, roam direction, fight join, recall, and low HP can still be extracted when visible.
 
+Video/Riot scene-time alignment rules:
+- If the clip shows or states an in-game timestamp, put it in gameTimeSec as seconds.
+- If the clip appears to describe a different time or different scene than the locked Riot context, say so in uncertainFacts or confidenceNote.
+- Do not use Riot key events, objective timing, kill timing, turret plate timing, gold delta, or XP delta as strong confirmation when the Riot scene may not match the clip.
+- Roster lock still applies even if scene timing is uncertain: player and enemy mid champion identity remain Riot-confirmed.
+
 Accuracy rules:
 - Treat every conclusion as a hypothesis.
 - Do not overclaim champion names, exact cooldowns, items, gold, jungle position, objective state, or objective timing unless clearly visible or stated in the note.
@@ -347,6 +354,7 @@ Example style only; do not copy facts that are not visible:
 
 Return ONLY valid JSON with this exact structure:
 {
+  "gameTimeSec": 820,
   "suggestedScenarioType": "PRE_LANE_VISION | GANKED_WHILE_PUSHING | SOLO_KILL_TRADE | RECALL_GREED | UNSAFE_WARDING | ADVANTAGE_CONVERSION | OBJECTIVE_PREP_TURN | MID_ROAM_FIGHT_JOIN | GENERAL_LANING_DEATH | null",
   "suggestedSceneOutcomeAssessment": "good_decision | risky_but_successful | questionable | loss | death | unclear | null",
   "summary": "short Korean scene summary",
@@ -423,6 +431,10 @@ function normalizeFieldEvidenceSources(value: unknown): VideoDraftFieldEvidenceS
     movementDirection: normalizeFieldEvidenceSourceDetail(source.movementDirection),
     enemyJungleInfo: normalizeFieldEvidenceSourceDetail(source.enemyJungleInfo),
     allyJungleCover: normalizeFieldEvidenceSourceDetail(source.allyJungleCover),
+    currentOutcome: normalizeFieldEvidenceSourceDetail(source.currentOutcome),
+    objectiveType: normalizeFieldEvidenceSourceDetail(source.objectiveType),
+    timeToObjective: normalizeFieldEvidenceSourceDetail(source.timeToObjective),
+    objectivePrepAction: normalizeFieldEvidenceSourceDetail(source.objectivePrepAction),
   };
 }
 
@@ -440,6 +452,13 @@ function hasTrustedMapEvidence(
 ) {
   const source = typeof detail === "string" ? detail : detail?.source;
   return Boolean(source && TRUSTED_MAP_EVIDENCE_SOURCES.has(source));
+}
+
+function hasRiotEventEvidence(
+  detail: VideoDraftFieldEvidenceSourceDetail | VideoDraftMapEvidenceSource | undefined
+) {
+  const source = typeof detail === "string" ? detail : detail?.source;
+  return source === "riot_event";
 }
 
 function rosterParticipantMatches(
@@ -476,6 +495,83 @@ function hasRosterRoleEvidence({
 
 function buildWeakMapEvidenceNote(fieldLabel: string) {
   return `${fieldLabel}는 영상 근거가 추론 또는 불명확한 상태라 구조화 입력에는 넣지 않았습니다. 미니맵/화면/Riot 이벤트로 직접 확인이 필요합니다.`;
+}
+
+function finiteNumber(value: unknown) {
+  const numberValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim()
+        ? Number(value)
+        : NaN;
+  return Number.isFinite(numberValue) ? numberValue : undefined;
+}
+
+function mentionsRiotClipMismatch(value: string) {
+  return hasAnyText(value, [
+    "riot scene may not match",
+    "riot evidence may not match",
+    "timeline may not match",
+    "different clip",
+    "different scene",
+    "different time",
+    "mismatch",
+    "not match this clip",
+    "riot 시간이 다를",
+    "riot 장면이 다를",
+    "riot 근거가 다를",
+    "타임라인이 다를",
+    "다른 장면",
+    "다른 시간",
+    "클립과 맞지",
+    "클립과 불일치",
+    "장면 불일치",
+  ]);
+}
+
+function buildVideoRiotTimeAlignment({
+  videoGameTimeSec,
+  riotGameTimeSec,
+  verificationText,
+}: {
+  videoGameTimeSec?: number;
+  riotGameTimeSec?: number;
+  verificationText: string;
+}): VideoRiotTimeAlignment | undefined {
+  if (riotGameTimeSec === undefined && !mentionsRiotClipMismatch(verificationText)) {
+    return undefined;
+  }
+
+  const hasMismatchCue = mentionsRiotClipMismatch(verificationText);
+  if (videoGameTimeSec === undefined || riotGameTimeSec === undefined) {
+    return {
+      status: "unknown",
+      reasonKo: hasMismatchCue
+        ? "영상 초안이 Riot 근거와 같은 장면인지 확정하지 못했습니다."
+        : "영상 초안 또는 Riot 근거의 게임 시간이 부족해 같은 장면인지 확정하지 못했습니다.",
+      warningKo: hasMismatchCue
+        ? "Riot evidence may not match this clip."
+        : undefined,
+    };
+  }
+
+  const deltaSeconds = Math.abs(videoGameTimeSec - riotGameTimeSec);
+  if (hasMismatchCue || deltaSeconds > 60) {
+    return {
+      status: "misaligned",
+      deltaSeconds,
+      reasonKo: hasMismatchCue
+        ? "영상 초안이 Riot 근거와 같은 장면이 아닐 수 있다고 표시했습니다."
+        : `영상 초안 시간과 Riot 근거 시간이 ${Math.round(deltaSeconds)}초 차이납니다.`,
+      warningKo: "Riot evidence may not match this clip.",
+    };
+  }
+
+  return {
+    status: "aligned",
+    deltaSeconds,
+    reasonKo: `영상 초안 시간과 Riot 근거 시간이 ${Math.round(deltaSeconds)}초 이내로 맞습니다.`,
+  };
 }
 
 function hasAnyText(value: string, patterns: string[]) {
@@ -836,6 +932,12 @@ export function parseVideoReviewDraft(
     uncertainFacts,
     rawConfidenceNote
   );
+  const videoGameTimeSec = finiteNumber(source.gameTimeSec);
+  const videoRiotTimeAlignment = buildVideoRiotTimeAlignment({
+    videoGameTimeSec,
+    riotGameTimeSec: finiteNumber(lockedRiotContext?.gameTimeSec),
+    verificationText,
+  });
   const championConflictNotes = lockedChampionConflictNotes(
     source,
     lockedRiotContext
@@ -893,9 +995,13 @@ export function parseVideoReviewDraft(
     ),
   };
   const weakMapEvidenceNotes: string[] = [];
+  const isVideoRiotMisaligned =
+    videoRiotTimeAlignment?.status === "misaligned";
   if (
     suggestedFields.movementDirection &&
     (!hasTrustedMapEvidence(fieldEvidenceSources.movementDirection) ||
+      (isVideoRiotMisaligned &&
+        hasRiotEventEvidence(fieldEvidenceSources.movementDirection)) ||
       hasMapUncertaintyConflict(verificationText, "movementDirection"))
   ) {
     suggestedFields.movementDirection = undefined;
@@ -904,6 +1010,8 @@ export function parseVideoReviewDraft(
   if (
     suggestedFields.enemyJungleInfo &&
     (!hasTrustedMapEvidence(fieldEvidenceSources.enemyJungleInfo) ||
+      (isVideoRiotMisaligned &&
+        hasRiotEventEvidence(fieldEvidenceSources.enemyJungleInfo)) ||
       hasMapUncertaintyConflict(verificationText, "enemyJungleInfo"))
   ) {
     suggestedFields.enemyJungleInfo = undefined;
@@ -931,6 +1039,8 @@ export function parseVideoReviewDraft(
   if (
     suggestedFields.allyJungleCover &&
     (!hasTrustedMapEvidence(fieldEvidenceSources.allyJungleCover) ||
+      (isVideoRiotMisaligned &&
+        hasRiotEventEvidence(fieldEvidenceSources.allyJungleCover)) ||
       hasMapUncertaintyConflict(verificationText, "allyJungleCover"))
   ) {
     suggestedFields.allyJungleCover = undefined;
@@ -971,10 +1081,33 @@ export function parseVideoReviewDraft(
   ) {
     suggestedFields.postPushIntent = undefined;
   }
+  if (isVideoRiotMisaligned) {
+    const misalignedRiotNotes: string[] = [];
+    if (hasRiotEventEvidence(fieldEvidenceSources.currentOutcome)) {
+      suggestedFields.currentOutcome = undefined;
+      misalignedRiotNotes.push("Riot 이벤트 기반 결과 확인은 클립 시간 불일치로 보류했습니다.");
+    }
+    if (
+      hasRiotEventEvidence(fieldEvidenceSources.objectiveType) ||
+      hasRiotEventEvidence(fieldEvidenceSources.timeToObjective) ||
+      hasRiotEventEvidence(fieldEvidenceSources.objectivePrepAction)
+    ) {
+      suggestedFields.objectiveType = undefined;
+      suggestedFields.timeToObjective = undefined;
+      suggestedFields.objectivePrepAction = undefined;
+      misalignedRiotNotes.push("Riot 이벤트 기반 오브젝트 타이밍 확인은 클립 시간 불일치로 보류했습니다.");
+    }
+    if (misalignedRiotNotes.length > 0) {
+      finalUncertainFacts = Array.from(
+        new Set([...misalignedRiotNotes, ...finalUncertainFacts])
+      ).slice(0, 8);
+    }
+  }
   const compactedFieldEvidenceSources =
     compactFieldEvidenceSources(fieldEvidenceSources);
 
   return {
+    ...(videoGameTimeSec !== undefined ? { gameTimeSec: videoGameTimeSec } : {}),
     suggestedScenarioType: scenario ?? null,
     suggestedSceneOutcomeAssessment:
       normalizeSceneOutcomeAssessment({
@@ -1000,6 +1133,9 @@ export function parseVideoReviewDraft(
     ),
     ...(compactedFieldEvidenceSources
       ? { fieldEvidenceSources: compactedFieldEvidenceSources }
+      : {}),
+    ...(videoRiotTimeAlignment
+      ? { videoRiotTimeAlignment }
       : {}),
     confidenceNote:
       championConflictNotes.length > 0
