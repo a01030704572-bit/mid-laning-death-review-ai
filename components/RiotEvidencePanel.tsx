@@ -8,6 +8,8 @@ import type {
   RiotTimelineEvidence,
   RiotTimelineEvidenceResponse,
 } from "@/types/riot";
+import type { LockedRiotVideoContext } from "@/types/videoDraft";
+import { buildLockedRiotVideoContext } from "@/lib/videoDraftRiotContext";
 
 function formatDuration(seconds: number) {
   const minutes = Math.floor(seconds / 60);
@@ -48,7 +50,10 @@ function objectiveLabel(value: string) {
 
 type RiotEvidencePanelProps = {
   embedded?: boolean;
-  onEvidenceChange?: (evidence: RiotTimelineEvidence | null) => void;
+  onEvidenceChange?: (
+    evidence: RiotTimelineEvidence | null,
+    lockedRiotContext?: LockedRiotVideoContext | null
+  ) => void;
   onMatchReviewRequested?: (matchId: string, puuid: string) => void;
 };
 
@@ -148,8 +153,16 @@ export default function RiotEvidencePanel({
       if (!response.ok) {
         throw new Error(data.error || "Riot evidence 조회에 실패했습니다.");
       }
+      const lockedRiotContext = buildLockedRiotVideoContext({
+        evidence: data.evidence,
+        matchId: selectedMatch.matchId,
+        gameTimeSec,
+        windowSec,
+        playerChampion: selectedMatch.championName,
+        roster: data.videoContextRoster,
+      });
       setEvidence(data.evidence);
-      onEvidenceChange?.(data.evidence);
+      onEvidenceChange?.(data.evidence, lockedRiotContext);
       onMatchReviewRequested?.(selectedMatch.matchId, selectedMatch.puuid);
     } catch (requestError) {
       setError(

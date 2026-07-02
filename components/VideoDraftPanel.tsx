@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { SceneOutcomeAssessment, ScenarioType } from "@/types/review";
 import type {
+  LockedRiotVideoContext,
   VideoDraftSuggestedFields,
   VideoReviewDraft,
 } from "@/types/videoDraft";
@@ -14,6 +15,7 @@ import {
 type Props = {
   onDraftChange?: (draft: VideoReviewDraft | null) => void;
   embedded?: boolean;
+  lockedRiotContext?: LockedRiotVideoContext | null;
 };
 
 const SCENARIO_LABELS: Record<ScenarioType, string> = {
@@ -131,6 +133,7 @@ const FIELD_VALUE_LABELS: Record<string, string> = {
 export default function VideoDraftPanel({
   onDraftChange,
   embedded = false,
+  lockedRiotContext = null,
 }: Props) {
   const [clip, setClip] = useState<File | null>(null);
   const [note, setNote] = useState("");
@@ -169,6 +172,9 @@ export default function VideoDraftPanel({
       formData.append("clip", clip);
       formData.append("note", note);
       formData.append("provider", provider);
+      if (lockedRiotContext) {
+        formData.append("lockedRiotContext", JSON.stringify(lockedRiotContext));
+      }
 
       const response = await fetch("/api/video-draft", {
         method: "POST",

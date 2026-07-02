@@ -20,6 +20,7 @@ import {
   MAX_VIDEO_DRAFT_NOTE_LENGTH,
   parseVideoReviewDraft,
 } from "@/lib/videoDraft";
+import { parseLockedRiotVideoContext } from "@/lib/videoDraftRiotContext";
 
 const OPENAI_INSUFFICIENT_QUOTA_ERROR =
   "OpenAI API 사용 가능 크레딧 또는 결제 한도가 부족합니다. OpenAI Platform의 Billing/Usage를 확인해 주세요.";
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
     const clip = formData.get("clip");
     const rawNote = formData.get("note");
     const rawProvider = formData.get("provider");
+    const rawLockedRiotContext = formData.get("lockedRiotContext");
 
     if (!(clip instanceof File)) {
       return NextResponse.json(
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
 
     const note = typeof rawNote === "string" ? rawNote.trim() : "";
     const provider = typeof rawProvider === "string" ? rawProvider.trim() : "";
+    const lockedRiotContext = parseLockedRiotVideoContext(rawLockedRiotContext);
     if (provider && provider !== "gemini" && provider !== "openai") {
       return NextResponse.json(
         { error: "지원하지 않는 영상 초안 provider입니다." },
@@ -84,7 +87,7 @@ export async function POST(request: Request) {
     }
 
     const text = await generateVideoDraft(
-      buildVideoDraftPrompt(note),
+      buildVideoDraftPrompt(note, lockedRiotContext),
       clip,
       clip.type,
       { provider: provider === "openai" ? "openai" : "gemini" }
@@ -96,7 +99,9 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ draft: parseVideoReviewDraft(text, note) });
+    return NextResponse.json({
+      draft: parseVideoReviewDraft(text, note, lockedRiotContext),
+    });
   } catch (error) {
     if (error instanceof UnsupportedVideoProviderError) {
       return NextResponse.json(

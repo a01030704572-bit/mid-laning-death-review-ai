@@ -1,4 +1,8 @@
-import type { VideoReviewDraft } from "@/types/videoDraft";
+import type {
+  LockedRiotVideoContext,
+  VideoReviewDraft,
+} from "@/types/videoDraft";
+import { normalizeChampionName } from "@/lib/championNameNormalizer";
 import type {
   AllyJungleCoverBeforeFight,
   CurrentOutcome,
@@ -181,7 +185,99 @@ export function getVideoDraftFileValidationError(
   return null;
 }
 
-export function buildVideoDraftPrompt(note: string) {
+function buildLockedRiotContextPrompt(
+  lockedRiotContext?: LockedRiotVideoContext | null
+) {
+  if (!lockedRiotContext) return "";
+
+  const keyEvents = lockedRiotContext.keyEvents?.length
+    ? lockedRiotContext.keyEvents
+        .map(
+          (event) =>
+            `- ${event.gameTimeSec}s ${event.type}: ${
+              event.descriptionKo ?? "Riot timeline event"
+            }`
+        )
+        .join("\n")
+    : "- No compact key events provided.";
+  const playerDelta = lockedRiotContext.playerDelta
+    ? `CS ${lockedRiotContext.playerDelta.cs ?? "unknown"}, gold ${
+        lockedRiotContext.playerDelta.gold ?? "unknown"
+      }, XP ${lockedRiotContext.playerDelta.xp ?? "unknown"}`
+    : "unknown";
+  const enemyMidDelta = lockedRiotContext.enemyMidDelta
+    ? `champion ${
+        lockedRiotContext.enemyMidDelta.championName ??
+        lockedRiotContext.enemyMidChampion ??
+        "unknown"
+      }, CS ${lockedRiotContext.enemyMidDelta.cs ?? "unknown"}, gold ${
+        lockedRiotContext.enemyMidDelta.gold ?? "unknown"
+      }, XP ${lockedRiotContext.enemyMidDelta.xp ?? "unknown"}`
+    : "unknown";
+  const roster = lockedRiotContext.roster ?? [];
+  const playerLine = roster.find((participant) => participant.isPlayer);
+  const allies = roster.filter((participant) => participant.side === "ally");
+  const enemies = roster.filter((participant) => participant.side === "enemy");
+  const formatRosterParticipant = (
+    participant: NonNullable<LockedRiotVideoContext["roster"]>[number]
+  ) =>
+    `${participant.championName}(${participant.role}${
+      participant.isPlayer ? ", player" : ""
+    })`;
+  const rosterSection =
+    roster.length > 0
+      ? `
+[Riot Roster Lock]
+Riot API confirmed the only champions in this match:
+- Player: ${
+          playerLine
+            ? `${playerLine.championName} - ally ${playerLine.role}`
+            : lockedRiotContext.playerChampion ?? "unknown"
+        }
+- Allies: ${allies.map(formatRosterParticipant).join(", ") || "unknown"}
+- Enemies: ${enemies.map(formatRosterParticipant).join(", ") || "unknown"}
+
+Roster lock rules:
+1. Riot roster is the identity source of truth.
+2. The player champion is locked as ${lockedRiotContext.playerChampion ?? "unknown"}.
+3. The enemy mid champion is locked as ${lockedRiotContext.enemyMidChampion ?? "unknown"}.
+4. If a visible champion appears in the video, first map it to the Riot roster.
+5. If Hecarim appears and the roster says Hecarim is allied jungle, describe him as allied jungle, not as the player.
+6. Do not override player champion or enemy mid champion from video.
+7. If the video appears to show a champion not in the Riot roster, record it as uncertainty/conflict.
+8. Do not put conflicting champion names into structured form fields.
+9. Safe non-champion observations are still allowed: wave state, roam direction, fight join, warding, recall, low HP, and visible ally/enemy presence.
+`
+      : "";
+
+  return `
+Locked Riot context:
+- matchId: ${lockedRiotContext.matchId ?? "unknown"}
+- scene time: ${lockedRiotContext.gameTimeSec ?? "unknown"}s
+- window after scene: ${lockedRiotContext.windowSec ?? "unknown"}s
+- Riot-confirmed player champion: ${lockedRiotContext.playerChampion ?? "unknown"}
+- Riot-confirmed enemy mid champion: ${lockedRiotContext.enemyMidChampion ?? "unknown"}
+- player delta: ${playerDelta}
+- enemy mid delta: ${enemyMidDelta}
+- key Riot events:
+${keyEvents}
+
+${rosterSection}
+
+Riot context lock rules:
+- Treat the locked Riot context as source-of-truth for champion identities and timeline facts.
+- Do not override Riot-confirmed playerChampion or enemyMidChampion based on video appearance.
+- If the video appears to show another champion, report it only as uncertainty/conflict.
+- Use this Korean wording when relevant: "영상상 다른 챔피언처럼 보일 수 있으나 Riot 기준 챔피언 정보와 충돌하므로 직접 확인이 필요합니다."
+- Do not put conflicting champion names into structured form fields or top-level champion fields.
+- Non-champion observations such as wave state, movement direction, fight join, warding, recall, and visible positioning can still be extracted.
+`;
+}
+
+export function buildVideoDraftPrompt(
+  note: string,
+  lockedRiotContext?: LockedRiotVideoContext | null
+) {
   const sceneNote = note.trim() || "추가 장면 메모 없음";
 
   return `
@@ -190,6 +286,8 @@ This is NOT a generic video summary and NOT final coaching. Do not judge the pla
 
 Player scene note:
 ${sceneNote}
+
+${buildLockedRiotContextPrompt(lockedRiotContext)}
 
 Use the player scene note as an important hint, while keeping conflicts with the visible clip in uncertainFacts.
 
@@ -295,6 +393,115 @@ function isWeakFreeDescription(value: string) {
 function includesAny(value: string, patterns: string[]) {
   const normalized = value.toLowerCase();
   return patterns.some((pattern) => normalized.includes(pattern));
+}
+
+function firstDraftChampionText(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return "";
+}
+
+function findRosterChampion(
+  roster: LockedRiotVideoContext["roster"] | undefined,
+  championName: string
+) {
+  const championKey = normalizeChampionName(championName);
+  if (!championKey) return undefined;
+  return roster?.find(
+    (participant) => normalizeChampionName(participant.championName) === championKey
+  );
+}
+
+function roleLabelKo(role: NonNullable<LockedRiotVideoContext["roster"]>[number]["role"]) {
+  switch (role) {
+    case "top":
+      return "탑";
+    case "jungle":
+      return "정글";
+    case "mid":
+      return "미드";
+    case "bot":
+      return "원딜";
+    case "support":
+      return "서포터";
+    default:
+      return "역할 미확인";
+  }
+}
+
+function sideLabelKo(side: NonNullable<LockedRiotVideoContext["roster"]>[number]["side"]) {
+  return side === "enemy" ? "상대" : "아군";
+}
+
+function championRosterConflictNote({
+  draftChampion,
+  lockedChampion,
+  lockedRoleLabel,
+  roster,
+}: {
+  draftChampion: string;
+  lockedChampion?: string | null;
+  lockedRoleLabel: "플레이어" | "상대 미드";
+  roster?: LockedRiotVideoContext["roster"];
+}) {
+  if (!roster || roster.length === 0) {
+    return `영상상 ${draftChampion}처럼 보일 수 있으나 Riot 기준 ${lockedRoleLabel} 챔피언 ${lockedChampion ?? "확인 필요"} 정보와 충돌하므로 직접 확인이 필요합니다.`;
+  }
+
+  const rosterParticipant = findRosterChampion(roster, draftChampion);
+  if (rosterParticipant) {
+    return `영상에서 ${draftChampion}이 보이지만 Riot roster 기준 ${lockedRoleLabel}는 ${lockedChampion ?? "확인 필요"}이며, ${draftChampion}은 ${sideLabelKo(rosterParticipant.side)} ${roleLabelKo(rosterParticipant.role)}로 보입니다.`;
+  }
+
+  return `영상에서 Riot roster에 없는 챔피언명 ${draftChampion}이 감지되어 신원 확정이 필요합니다.`;
+}
+
+function lockedChampionConflictNotes(
+  source: Record<string, unknown>,
+  lockedRiotContext?: LockedRiotVideoContext | null
+) {
+  if (!lockedRiotContext) return [];
+
+  const notes: string[] = [];
+  const draftPlayerChampion = firstDraftChampionText(
+    source.myChampion,
+    source.champion,
+    source.playerChampion
+  );
+  const draftEnemyChampion = firstDraftChampionText(
+    source.enemyChampion,
+    source.opponentChampion
+  );
+  const lockedPlayerKey = normalizeChampionName(lockedRiotContext.playerChampion);
+  const lockedEnemyKey = normalizeChampionName(lockedRiotContext.enemyMidChampion);
+  const draftPlayerKey = normalizeChampionName(draftPlayerChampion);
+  const draftEnemyKey = normalizeChampionName(draftEnemyChampion);
+
+  if (lockedPlayerKey && draftPlayerKey && lockedPlayerKey !== draftPlayerKey) {
+    notes.push(
+      championRosterConflictNote({
+        draftChampion: draftPlayerChampion,
+        lockedChampion: lockedRiotContext.playerChampion,
+        lockedRoleLabel: "플레이어",
+        roster: lockedRiotContext.roster,
+      })
+    );
+  }
+  if (lockedEnemyKey && draftEnemyKey && lockedEnemyKey !== draftEnemyKey) {
+    notes.push(
+      championRosterConflictNote({
+        draftChampion: draftEnemyChampion,
+        lockedChampion: lockedRiotContext.enemyMidChampion,
+        lockedRoleLabel: "상대 미드",
+        roster: lockedRiotContext.roster,
+      })
+    );
+  }
+
+  return notes;
 }
 
 function normalizeSceneOutcomeAssessment({
@@ -407,7 +614,8 @@ function buildFallbackFreeDescription({
 
 export function parseVideoReviewDraft(
   text: string,
-  sceneNote = ""
+  sceneNote = "",
+  lockedRiotContext?: LockedRiotVideoContext | null
 ): VideoReviewDraft {
   let parsed: unknown;
   try {
@@ -428,6 +636,10 @@ export function parseVideoReviewDraft(
   const summary = normalizeString(source.summary) || "장면의 일부 행동이 보입니다";
   const keyFacts = normalizeStringArray(source.keyFacts);
   const uncertainFacts = normalizeStringArray(source.uncertainFacts);
+  const championConflictNotes = lockedChampionConflictNotes(
+    source,
+    lockedRiotContext
+  );
   const normalizedUncertainFacts =
     keyFacts.length === 0 && uncertainFacts.length === 0
       ? [
@@ -436,6 +648,9 @@ export function parseVideoReviewDraft(
           "교전 결과와 이후 전환",
         ]
       : uncertainFacts;
+  const finalUncertainFacts = Array.from(
+    new Set([...championConflictNotes, ...normalizedUncertainFacts])
+  ).slice(0, 8);
   const suggestedFreeDescription = normalizeString(
     source.suggestedFreeDescription
   );
@@ -501,20 +716,27 @@ export function parseVideoReviewDraft(
       }) ?? null,
     summary,
     keyFacts,
-    uncertainFacts: normalizedUncertainFacts,
+    uncertainFacts: finalUncertainFacts,
     suggestedFreeDescription: isWeakFreeDescription(suggestedFreeDescription)
       ? buildFallbackFreeDescription({
           note: sceneNote,
           summary,
           keyFacts,
-          uncertainFacts: normalizedUncertainFacts,
+          uncertainFacts: finalUncertainFacts,
         })
       : suggestedFreeDescription,
     suggestedFields: Object.fromEntries(
       Object.entries(suggestedFields).filter(([, value]) => value !== undefined)
     ),
     confidenceNote:
-      normalizeString(source.confidenceNote) ||
-      "영상만으로 확정하기 어려운 정보는 직접 확인해주세요.",
+      championConflictNotes.length > 0
+        ? [
+            normalizeString(source.confidenceNote),
+            "Riot 기준 챔피언 정보와 영상 추정이 충돌할 수 있어 챔피언명은 Riot 정보를 우선해야 합니다.",
+          ]
+            .filter(Boolean)
+            .join(" ")
+        : normalizeString(source.confidenceNote) ||
+          "영상만으로 확정하기 어려운 정보는 직접 확인해주세요.",
   };
 }

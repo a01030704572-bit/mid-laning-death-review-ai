@@ -15,7 +15,7 @@ import type { ReviewSceneCompletion } from "@/types/history";
 import type { ReviewEvidenceMetadata } from "@/types/evidence";
 import type { MatchReviewReport, RankedReviewScene } from "@/types/matchReview";
 import type { RiotTimelineEvidence } from "@/types/riot";
-import type { VideoReviewDraft } from "@/types/videoDraft";
+import type { LockedRiotVideoContext, VideoReviewDraft } from "@/types/videoDraft";
 import {
   createReviewSceneRecord,
   saveReviewSceneRecord,
@@ -43,6 +43,8 @@ export default function Home() {
   const [videoDraftPatchVersion, setVideoDraftPatchVersion] = useState(0);
   const [riotEvidence, setRiotEvidence] =
     useState<RiotTimelineEvidence | null>(null);
+  const [lockedRiotVideoContext, setLockedRiotVideoContext] =
+    useState<LockedRiotVideoContext | null>(null);
   const [matchReviewReport, setMatchReviewReport] =
     useState<MatchReviewReport | null>(null);
   const [selectedScene, setSelectedScene] =
@@ -91,8 +93,12 @@ export default function Home() {
     setIsVideoDraftApplied(true);
   }
 
-  function handleRiotEvidenceChange(nextEvidence: RiotTimelineEvidence | null) {
+  function handleRiotEvidenceChange(
+    nextEvidence: RiotTimelineEvidence | null,
+    nextLockedRiotContext: LockedRiotVideoContext | null = null
+  ) {
     setRiotEvidence(nextEvidence);
+    setLockedRiotVideoContext(nextLockedRiotContext);
     if (!nextEvidence) {
       setMatchReviewReport(null);
       setSelectedScene(null);
@@ -214,7 +220,11 @@ export default function Home() {
             />
           }
           videoDraftPanel={
-            <VideoDraftPanel onDraftChange={handleVideoDraftChange} embedded />
+            <VideoDraftPanel
+              onDraftChange={handleVideoDraftChange}
+              embedded
+              lockedRiotContext={lockedRiotVideoContext}
+            />
           }
           riotEvidencePanel={
             <RiotEvidencePanel

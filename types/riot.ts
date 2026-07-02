@@ -1,4 +1,5 @@
 import type { AutoSceneCandidate } from "@/types/autoScene";
+import type { LockedRiotVideoContext } from "@/types/videoDraft";
 
 export type RiotRegionalRoute = "asia" | "americas" | "europe" | "sea";
 
@@ -29,6 +30,7 @@ export type RiotEvidenceRequest = {
 export type RiotTimelineEvidenceResponse = {
   evidence: RiotTimelineEvidence;
   autoSceneCandidates?: AutoSceneCandidate[];
+  videoContextRoster?: LockedRiotVideoContext["roster"];
 };
 
 export type RiotTimelineEvidence = {

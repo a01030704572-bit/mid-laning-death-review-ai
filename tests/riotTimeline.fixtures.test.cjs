@@ -41,6 +41,9 @@ const autoSceneExtractorModule = loadTypeScriptModule(
   "lib/riot/autoSceneExtractor.ts"
 );
 const riotClientModule = loadTypeScriptModule("lib/riot/client.ts");
+const videoDraftRiotContextModule = loadTypeScriptModule(
+  "lib/videoDraftRiotContext.ts"
+);
 
 function makeMatch({ enemyMidPosition = "MIDDLE" } = {}) {
   return {
@@ -186,6 +189,7 @@ function loadEvidenceRoute(clientOverrides = {}, extractorOverrides = {}) {
     },
     "@/lib/riot/client": clientModule,
     "@/lib/riot/evidenceBuilder": evidenceBuilderModule,
+    "@/lib/videoDraftRiotContext": videoDraftRiotContextModule,
     "@/lib/riot/autoSceneExtractor": {
       ...autoSceneExtractorModule,
       ...extractorOverrides,
@@ -637,6 +641,132 @@ test("/api/riot/evidence includes auto scene candidates from the same Riot data"
     "death_review_candidate"
   );
   assert.equal(response.body.autoSceneCandidates[0].matchId, "KR_1");
+});
+
+test("/api/riot/evidence includes compact video context roster without raw identity fields", async () => {
+  const match = {
+    metadata: { matchId: "KR_1" },
+    info: {
+      gameCreation: 1760000000000,
+      gameDuration: 1500,
+      participants: [
+        {
+          puuid: "player-puuid",
+          participantId: 1,
+          teamId: 100,
+          championName: "Locke",
+          individualPosition: "MIDDLE",
+          teamPosition: "MIDDLE",
+        },
+        {
+          puuid: "ally-jungle",
+          participantId: 2,
+          teamId: 100,
+          championName: "Hecarim",
+          individualPosition: "JUNGLE",
+          teamPosition: "JUNGLE",
+        },
+        {
+          puuid: "ally-top",
+          participantId: 3,
+          teamId: 100,
+          championName: "Gnar",
+          individualPosition: "TOP",
+          teamPosition: "TOP",
+        },
+        {
+          puuid: "ally-bot",
+          participantId: 4,
+          teamId: 100,
+          championName: "Jinx",
+          individualPosition: "BOTTOM",
+          teamPosition: "BOTTOM",
+        },
+        {
+          puuid: "ally-support",
+          participantId: 5,
+          teamId: 100,
+          championName: "Lulu",
+          individualPosition: "UTILITY",
+          teamPosition: "UTILITY",
+        },
+        {
+          puuid: "enemy-mid",
+          participantId: 6,
+          teamId: 200,
+          championName: "Fizz",
+          individualPosition: "MIDDLE",
+          teamPosition: "MIDDLE",
+        },
+        {
+          puuid: "enemy-jungle",
+          participantId: 7,
+          teamId: 200,
+          championName: "Lee Sin",
+          individualPosition: "JUNGLE",
+          teamPosition: "JUNGLE",
+        },
+        {
+          puuid: "enemy-top",
+          participantId: 8,
+          teamId: 200,
+          championName: "Renekton",
+          individualPosition: "TOP",
+          teamPosition: "TOP",
+        },
+        {
+          puuid: "enemy-bot",
+          participantId: 9,
+          teamId: 200,
+          championName: "Ezreal",
+          individualPosition: "BOTTOM",
+          teamPosition: "BOTTOM",
+        },
+        {
+          puuid: "enemy-support",
+          participantId: 10,
+          teamId: 200,
+          championName: "Nautilus",
+          individualPosition: "UTILITY",
+          teamPosition: "UTILITY",
+        },
+      ],
+    },
+  };
+  const response = await postEvidence(
+    loadEvidenceRoute({
+      getMatchDetail: async () => match,
+    }),
+    {
+      matchId: "KR_1",
+      puuid: "player-puuid",
+      gameTimeSec: 240,
+    }
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.videoContextRoster.length, 10);
+  assert.deepEqual(response.body.videoContextRoster[0], {
+    championName: "Locke",
+    side: "ally",
+    role: "mid",
+    isPlayer: true,
+  });
+  assert.ok(
+    response.body.videoContextRoster.some(
+      (participant) =>
+        participant.championName === "Hecarim" &&
+        participant.side === "ally" &&
+        participant.role === "jungle" &&
+        participant.isPlayer === false
+    )
+  );
+  assert.equal(
+    response.body.videoContextRoster.some(
+      (participant) => "puuid" in participant || "participantId" in participant
+    ),
+    false
+  );
 });
 
 test("/api/riot/evidence keeps evidence response when auto scene extraction fails", async () => {

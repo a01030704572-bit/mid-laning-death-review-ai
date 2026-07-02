@@ -120,7 +120,15 @@ const generateVideoDraftModule = loadTypeScriptModule(
     "@/lib/ai/openAiFrameProvider": fakeOpenAiProviderModule,
   }
 );
-const videoDraftModule = loadTypeScriptModule("lib/videoDraft.ts");
+const championNormalizerModule = loadTypeScriptModule(
+  "lib/championNameNormalizer.ts"
+);
+const videoDraftModule = loadTypeScriptModule("lib/videoDraft.ts", {
+  "@/lib/championNameNormalizer": championNormalizerModule,
+});
+const videoDraftRiotContextModule = loadTypeScriptModule(
+  "lib/videoDraftRiotContext.ts"
+);
 
 function loadVideoDraftRoute(generateVideoDraft) {
   return loadTypeScriptModule("app/api/video-draft/route.ts", {
@@ -138,6 +146,7 @@ function loadVideoDraftRoute(generateVideoDraft) {
     },
     "@/lib/ai/geminiProvider": geminiModule,
     "@/lib/videoDraft": videoDraftModule,
+    "@/lib/videoDraftRiotContext": videoDraftRiotContextModule,
   });
 }
 
@@ -521,6 +530,274 @@ test("video draft prompt extracts existing form inputs instead of generic coachi
   assert.match(prompt, /self-review hypothesis/);
   assert.match(prompt, /visibleFacts/);
   assert.match(prompt, /교전 자체에 대한 판단은 필요/);
+});
+
+test("video draft prompt includes locked Riot context when provided", () => {
+  const prompt = videoDraftModule.buildVideoDraftPrompt("lane fight note", {
+    matchId: "KR_123",
+    gameTimeSec: 615,
+    windowSec: 60,
+    playerChampion: "Locke",
+    enemyMidChampion: "Fizz",
+    roster: [
+      { championName: "Locke", side: "ally", role: "mid", isPlayer: true },
+      { championName: "Hecarim", side: "ally", role: "jungle", isPlayer: false },
+      { championName: "Fizz", side: "enemy", role: "mid", isPlayer: false },
+    ],
+    keyEvents: [
+      {
+        type: "death",
+        gameTimeSec: 620,
+        descriptionKo: "Player death event",
+      },
+    ],
+    playerDelta: { cs: -3, gold: -120, xp: -80 },
+    enemyMidDelta: {
+      championName: "Fizz",
+      cs: 2,
+      gold: 300,
+      xp: 120,
+    },
+  });
+
+  assert.match(prompt, /Locked Riot context/);
+  assert.match(prompt, /Riot-confirmed player champion: Locke/);
+  assert.match(prompt, /Riot-confirmed enemy mid champion: Fizz/);
+  assert.match(prompt, /\[Riot Roster Lock\]/);
+  assert.match(prompt, /Player: Locke - ally mid/);
+  assert.match(prompt, /Hecarim\(jungle\)/);
+  assert.match(prompt, /Do not override Riot-confirmed playerChampion/);
+  assert.match(prompt, /If Hecarim appears and the roster says Hecarim is allied jungle/);
+  assert.match(prompt, /영상상 다른 챔피언처럼 보일 수 있으나 Riot 기준 챔피언 정보와 충돌/);
+});
+
+test("locked Riot context conflict is recorded without blocking safe fields", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      playerChampion: "Hecarim",
+      enemyChampion: "Cassiopeia",
+      summary: "영상에서는 강가 쪽 교전 합류가 보입니다.",
+      keyFacts: ["미드에서 강가 쪽으로 이동했습니다."],
+      uncertainFacts: ["정확한 선진입 타이밍 확인 필요"],
+      suggestedFreeDescription:
+        "미드에서 강가 쪽으로 이동한 뒤 교전에 합류한 장면입니다. 웨이브 정리 여부와 합류 타이밍은 직접 확인이 필요합니다.",
+      suggestedFields: {
+        laneStateDetail: "slow_pushing_to_enemy",
+        movementDirection: "top_side",
+      },
+      confidenceNote: "일부 챔피언 식별은 불확실합니다.",
+    }),
+    "",
+    {
+      playerChampion: "Locke",
+      enemyMidChampion: "Fizz",
+    }
+  );
+
+  assert.equal(draft.suggestedFields.laneStateDetail, "slow_pushing_to_enemy");
+  assert.equal(draft.suggestedFields.movementDirection, "top_side");
+  assert.ok(
+    draft.uncertainFacts.some((fact) =>
+      fact.includes("Riot 기준 플레이어 챔피언 Locke")
+    )
+  );
+  assert.ok(
+    draft.uncertainFacts.some((fact) =>
+      fact.includes("Riot 기준 상대 미드 챔피언 Fizz")
+    )
+  );
+  assert.match(draft.confidenceNote, /Riot 기준 챔피언 정보/);
+});
+
+test("locked Riot roster maps visible allied jungler conflict instead of player identity", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      playerChampion: "Hecarim",
+      summary: "영상에서는 헤카림이 강가 교전에 보입니다.",
+      keyFacts: ["헤카림이 강가 쪽으로 합류했습니다."],
+      uncertainFacts: [],
+      suggestedFreeDescription:
+        "강가 쪽 교전에 챔피언이 합류한 장면입니다. 웨이브와 합류 타이밍은 직접 확인이 필요합니다.",
+      suggestedFields: {
+        laneStateDetail: "slow_pushing_to_enemy",
+        movementDirection: "top_side",
+      },
+      confidenceNote: "챔피언 식별은 Riot roster 기준 확인이 필요합니다.",
+    }),
+    "",
+    {
+      playerChampion: "Locke",
+      enemyMidChampion: "Fizz",
+      roster: [
+        { championName: "Locke", side: "ally", role: "mid", isPlayer: true },
+        {
+          championName: "Hecarim",
+          side: "ally",
+          role: "jungle",
+          isPlayer: false,
+        },
+        { championName: "Fizz", side: "enemy", role: "mid", isPlayer: false },
+      ],
+    }
+  );
+
+  assert.equal(draft.suggestedFields.laneStateDetail, "slow_pushing_to_enemy");
+  assert.equal(draft.suggestedFields.movementDirection, "top_side");
+  assert.ok(
+    draft.uncertainFacts.some(
+      (fact) =>
+        fact.includes("Hecarim") &&
+        fact.includes("플레이어는 Locke") &&
+        fact.includes("아군 정글")
+    )
+  );
+});
+
+test("locked Riot roster reports champion names not present in roster", () => {
+  const draft = videoDraftModule.parseVideoReviewDraft(
+    JSON.stringify({
+      playerChampion: "Yasuo",
+      summary: "영상에서는 야스오처럼 보이는 챔피언이 있습니다.",
+      keyFacts: [],
+      uncertainFacts: [],
+      suggestedFreeDescription:
+        "교전 장면으로 보이지만 챔피언 식별과 웨이브 상태는 직접 확인이 필요합니다.",
+      suggestedFields: {
+        laneStateDetail: "neutral_middle",
+      },
+      confidenceNote: "",
+    }),
+    "",
+    {
+      playerChampion: "Locke",
+      enemyMidChampion: "Fizz",
+      roster: [
+        { championName: "Locke", side: "ally", role: "mid", isPlayer: true },
+        { championName: "Hecarim", side: "ally", role: "jungle", isPlayer: false },
+        { championName: "Fizz", side: "enemy", role: "mid", isPlayer: false },
+      ],
+    }
+  );
+
+  assert.equal(draft.suggestedFields.laneStateDetail, "neutral_middle");
+  assert.ok(
+    draft.uncertainFacts.some(
+      (fact) =>
+        fact.includes("Riot roster에 없는 챔피언명 Yasuo") &&
+        fact.includes("신원 확정이 필요")
+    )
+  );
+});
+
+test("locked Riot context builder keeps payload compact", () => {
+  const context = videoDraftRiotContextModule.buildLockedRiotVideoContext({
+    matchId: "KR_123",
+    gameTimeSec: 600,
+    windowSec: 60,
+    playerChampion: "Locke",
+    roster: [
+      { championName: "Locke", side: "ally", role: "mid", isPlayer: true },
+      { championName: "Hecarim", side: "ally", role: "jungle", isPlayer: false },
+      { championName: "Fizz", side: "enemy", role: "mid", isPlayer: false },
+    ],
+    evidence: {
+      events: [
+        {
+          kind: "death",
+          importance: "primary",
+          timestampSec: 610,
+          description: "Player died near river",
+        },
+        {
+          kind: "ward",
+          importance: "minor",
+          timestampSec: 612,
+          description: "Minor ward event",
+        },
+      ],
+      playerDelta: {
+        csDelta: -2,
+        totalGoldDelta: -100,
+        xpDelta: -60,
+      },
+      enemyMidDelta: {
+        championName: "Fizz",
+        csDelta: 3,
+        totalGoldDelta: 450,
+        xpDelta: 120,
+      },
+    },
+  });
+
+  assert.equal(context.matchId, "KR_123");
+  assert.equal(context.playerChampion, "Locke");
+  assert.equal(context.enemyMidChampion, "Fizz");
+  assert.deepEqual(context.roster, [
+    { championName: "Locke", side: "ally", role: "mid", isPlayer: true },
+    { championName: "Hecarim", side: "ally", role: "jungle", isPlayer: false },
+    { championName: "Fizz", side: "enemy", role: "mid", isPlayer: false },
+  ]);
+  assert.deepEqual(context.keyEvents, [
+    {
+      type: "death",
+      gameTimeSec: 610,
+      descriptionKo: "Player died near river",
+    },
+  ]);
+  assert.equal("frames" in context, false);
+  assert.equal("events" in context, false);
+});
+
+test("/api/video-draft passes compact locked Riot context into prompt", async () => {
+  let receivedPrompt = "";
+  const routeModule = loadVideoDraftRoute(async (prompt) => {
+    receivedPrompt = prompt;
+    return JSON.stringify({
+      summary: "fixture",
+      keyFacts: [],
+      uncertainFacts: [],
+      suggestedFreeDescription:
+        "fixture description long enough to avoid fallback and keep the parser stable.",
+      suggestedFields: {},
+      confidenceNote: "fixture",
+    });
+  });
+  const formData = new FormData();
+  const FileCtor = globalThis.File ?? NodeFile;
+  formData.append(
+    "clip",
+    new FileCtor(["fixture-video"], "clip.mp4", { type: "video/mp4" })
+  );
+  formData.append("provider", "gemini");
+  formData.append(
+    "lockedRiotContext",
+    JSON.stringify({
+      matchId: "KR_123",
+      playerChampion: "Locke",
+      enemyMidChampion: "Fizz",
+      roster: [
+        { championName: "Locke", side: "ally", role: "mid", isPlayer: true },
+        {
+          championName: "Hecarim",
+          side: "ally",
+          role: "jungle",
+          isPlayer: false,
+        },
+      ],
+      keyEvents: [{ type: "death", gameTimeSec: 610 }],
+      rawFrames: [{ shouldNotAppear: true }],
+    })
+  );
+
+  const response = await routeModule.POST({
+    formData: async () => formData,
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(receivedPrompt, /Riot-confirmed player champion: Locke/);
+  assert.match(receivedPrompt, /Riot-confirmed enemy mid champion: Fizz/);
+  assert.equal(receivedPrompt.includes("rawFrames"), false);
+  assert.equal(receivedPrompt.includes("shouldNotAppear"), false);
 });
 
 test("video draft parser rejects malformed JSON and removes invalid enums", () => {

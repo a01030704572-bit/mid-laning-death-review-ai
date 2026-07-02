@@ -28,6 +28,36 @@ export type VideoDraftSuggestedFields = {
   postPushIntent?: PostPushIntent;
 };
 
+export type LockedRiotVideoContext = {
+  matchId?: string;
+  gameTimeSec?: number;
+  windowSec?: number;
+  playerChampion?: string | null;
+  enemyMidChampion?: string | null;
+  roster?: Array<{
+    championName: string;
+    side: "ally" | "enemy";
+    role: "top" | "jungle" | "mid" | "bot" | "support" | "unknown";
+    isPlayer: boolean;
+  }>;
+  keyEvents?: Array<{
+    type: string;
+    gameTimeSec: number;
+    descriptionKo?: string;
+  }>;
+  playerDelta?: {
+    cs?: number;
+    gold?: number;
+    xp?: number;
+  };
+  enemyMidDelta?: {
+    championName?: string | null;
+    cs?: number;
+    gold?: number;
+    xp?: number;
+  };
+};
+
 export type VideoReviewDraft = {
   suggestedScenarioType: ScenarioType | null;
   suggestedSceneOutcomeAssessment: SceneOutcomeAssessment | null;

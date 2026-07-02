@@ -11,6 +11,7 @@ import {
   normalizeEvidenceRequest,
   RiotEvidenceValidationError,
 } from "@/lib/riot/evidenceBuilder";
+import { buildCompactRiotRoster } from "@/lib/videoDraftRiotContext";
 import { extractAutoSceneCandidates } from "@/lib/riot/autoSceneExtractor";
 import {
   findEnemyMidParticipant,
@@ -100,6 +101,10 @@ export async function POST(request: Request) {
     return NextResponse.json({
       evidence,
       autoSceneCandidates,
+      videoContextRoster: buildCompactRiotRoster({
+        participants: match.info.participants,
+        playerPuuid: evidenceRequest.puuid,
+      }),
     });
   } catch (error) {
     if (error instanceof RiotEvidenceValidationError) {
