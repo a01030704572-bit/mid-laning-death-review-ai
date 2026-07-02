@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CoachingDashboardLayout from "@/components/CoachingDashboardLayout";
 import DeathReviewForm from "@/components/DeathReviewForm";
 import EvidenceMetadataPreview from "@/components/EvidenceMetadataPreview";
@@ -30,6 +30,7 @@ import {
   buildVideoDraftApplyWarning,
   filterVideoDraftPatchByTrustGate,
 } from "@/lib/videoDraftTrustGate";
+import { getAppMode, type AppMode } from "@/lib/appMode";
 
 export default function Home() {
   const [reviewData, setReviewData] = useState<{
@@ -53,6 +54,12 @@ export default function Home() {
   const [isMatchReviewLoading, setIsMatchReviewLoading] = useState(false);
   const [hasExistingCoreSceneInput, setHasExistingCoreSceneInput] =
     useState(false);
+  const [appMode, setAppMode] = useState<AppMode>("user");
+
+  useEffect(() => {
+    setAppMode(getAppMode());
+  }, []);
+
   const repeatedPatternPreviewResults =
     buildRepeatedPatternPreviewResults("gold_platinum");
   const videoDraftPatch = useMemo(
@@ -229,6 +236,7 @@ export default function Home() {
           riotEvidencePanel={
             <RiotEvidencePanel
               embedded
+              appMode={appMode}
               onEvidenceChange={handleRiotEvidenceChange}
               onMatchReviewRequested={loadMatchReview}
             />
@@ -247,6 +255,7 @@ export default function Home() {
         />
       }
       result={resultPanel}
+      appMode={appMode}
     />
   );
 }

@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
+import type { AppMode } from "@/lib/appMode";
 
 type CoachingDashboardLayoutProps = {
   insight: ReactNode;
   sceneBuilder: ReactNode;
   result: ReactNode;
+  appMode?: AppMode;
 };
 
 function StatusBadge({ children }: { children: ReactNode }) {
@@ -33,6 +35,7 @@ export default function CoachingDashboardLayout({
   insight,
   sceneBuilder,
   result,
+  appMode = "user",
 }: CoachingDashboardLayoutProps) {
   return (
     <main className="min-h-screen bg-zinc-50 px-4 py-8 text-zinc-950 sm:px-6 lg:px-8">
@@ -54,6 +57,7 @@ export default function CoachingDashboardLayout({
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {appMode === "debug" && <StatusBadge>Debug mode</StatusBadge>}
               <StatusBadge>수동 MVP</StatusBadge>
               <StatusBadge>자동화 Preview</StatusBadge>
               <StatusBadge>영상 근거 준비 중</StatusBadge>

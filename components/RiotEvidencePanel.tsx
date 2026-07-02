@@ -9,6 +9,7 @@ import type {
   RiotTimelineEvidenceResponse,
 } from "@/types/riot";
 import type { LockedRiotVideoContext } from "@/types/videoDraft";
+import type { AppMode } from "@/lib/appMode";
 import { buildLockedRiotVideoContext } from "@/lib/videoDraftRiotContext";
 
 function formatDuration(seconds: number) {
@@ -50,6 +51,7 @@ function objectiveLabel(value: string) {
 
 type RiotEvidencePanelProps = {
   embedded?: boolean;
+  appMode?: AppMode;
   onEvidenceChange?: (
     evidence: RiotTimelineEvidence | null,
     lockedRiotContext?: LockedRiotVideoContext | null
@@ -59,6 +61,7 @@ type RiotEvidencePanelProps = {
 
 export default function RiotEvidencePanel({
   embedded = false,
+  appMode = "user",
   onEvidenceChange,
   onMatchReviewRequested,
 }: RiotEvidencePanelProps) {
@@ -319,8 +322,23 @@ export default function RiotEvidencePanel({
         </div>
       )}
 
-      {evidence && (
+      {evidence && appMode !== "debug" && (
         <div className="space-y-3 border-t border-zinc-200 pt-4">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">
+            <p className="font-semibold">Riot 근거가 연결되었습니다.</p>
+            <p className="mt-1 text-xs leading-5">
+              주요 이벤트 {primaryEvents.length}개를 확인했고, 자세한 이벤트 목록과
+              delta 정보는 debug mode에서 확인할 수 있습니다.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {evidence && appMode === "debug" && (
+        <div className="space-y-3 border-t border-zinc-200 pt-4">
+          <span className="inline-flex rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-semibold text-zinc-600">
+            Debug mode
+          </span>
           <p className="text-xs text-zinc-500">Riot timeline 기준 추정값입니다.</p>
           <EvidenceBlock title="주요 이벤트">
             {primaryEvents.length > 0 ? (
