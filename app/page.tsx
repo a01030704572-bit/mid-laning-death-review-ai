@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import CoachingDashboardLayout from "@/components/CoachingDashboardLayout";
 import DeathReviewForm from "@/components/DeathReviewForm";
 import EvidenceMetadataPreview from "@/components/EvidenceMetadataPreview";
@@ -31,6 +31,55 @@ import {
   filterVideoDraftPatchByTrustGate,
 } from "@/lib/videoDraftTrustGate";
 import { getAppMode, type AppMode } from "@/lib/appMode";
+
+type ManualReviewFallbackSectionProps = {
+  appMode: AppMode;
+  children: ReactNode;
+};
+
+function ManualReviewFallbackSection({
+  appMode,
+  children,
+}: ManualReviewFallbackSectionProps) {
+  const [isOpen, setIsOpen] = useState(appMode === "debug");
+
+  useEffect(() => {
+    setIsOpen(appMode === "debug");
+  }, [appMode]);
+
+  return (
+    <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-bold text-zinc-950">
+              직접 복기 입력하기
+            </h3>
+            {appMode === "debug" && (
+              <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] font-semibold text-zinc-500">
+                Debug mode
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">
+            자동 후보가 맞지 않거나 더 자세히 복기하고 싶을 때 사용하세요.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsOpen((open) => !open)}
+          className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 sm:w-auto"
+        >
+          {isOpen ? "직접 복기 입력 접기" : "직접 복기 입력 열기"}
+        </button>
+      </div>
+
+      <div className={isOpen ? "border-t border-zinc-200 p-4" : "hidden"}>
+        {children}
+      </div>
+    </section>
+  );
+}
 
 export default function Home() {
   const [reviewData, setReviewData] = useState<{
@@ -217,15 +266,17 @@ export default function Home() {
       sceneBuilder={
         <SceneReviewBuilder
           manualForm={
-            <DeathReviewForm
-              onResult={handleReviewResult}
-              videoDraft={videoDraft}
-              isVideoDraftApplied={isVideoDraftApplied}
-              videoDraftPatch={videoDraftPatch}
-              videoDraftPatchVersion={videoDraftPatchVersion}
-              onCoreSceneInputChange={setHasExistingCoreSceneInput}
-              riotEvidence={riotEvidence}
-            />
+            <ManualReviewFallbackSection appMode={appMode}>
+              <DeathReviewForm
+                onResult={handleReviewResult}
+                videoDraft={videoDraft}
+                isVideoDraftApplied={isVideoDraftApplied}
+                videoDraftPatch={videoDraftPatch}
+                videoDraftPatchVersion={videoDraftPatchVersion}
+                onCoreSceneInputChange={setHasExistingCoreSceneInput}
+                riotEvidence={riotEvidence}
+              />
+            </ManualReviewFallbackSection>
           }
           videoDraftPanel={
             <VideoDraftPanel
