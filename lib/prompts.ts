@@ -1,5 +1,6 @@
 import { DeathReviewInput, RiskTag, ScenarioType } from "@/types/review";
 import { CoachingCategory } from "@/lib/coachingCategories";
+import { buildEnemyChampionKnowledgePromptBlock } from "@/lib/championKnowledge";
 import { getOutcomeLabel } from "@/lib/outcomes";
 
 function getScenarioGuidance(
@@ -148,6 +149,9 @@ export function buildReviewPrompt(
   const confidenceWordingGuidance = isDeathScene
     ? "This is a death scene. Death-specific wording is allowed only when it matches the provided facts."
     : 'This is not a death scene. In confidence_note, never use "death cause", "사망 원인", or other death-specific wording. Use neutral wording such as "장면 판단", "판단 근거", "이득과 손해의 원인", or "추가 확인이 필요한 정보".';
+
+  const enemyChampionKnowledgeBlock =
+    buildEnemyChampionKnowledgePromptBlock(input.enemyChampion);
 
   return `
 
@@ -517,6 +521,9 @@ ${JSON.stringify(coachingCategories, null, 2)}
 
 Category-specific coaching knowledge:
 ${coachingKnowledgeBlock}
+
+Enemy champion knowledge:
+${enemyChampionKnowledgeBlock || "No champion-specific knowledge available for the provided enemyChampion."}
 
 Player input:
 ${JSON.stringify(input, null, 2)}

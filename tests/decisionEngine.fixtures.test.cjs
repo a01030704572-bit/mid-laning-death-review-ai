@@ -35,8 +35,12 @@ const { getVisibleScenarioValues } = loadTypeScriptModule(
   "lib/scenarioOptionFilter.ts"
 );
 const outcomesModule = loadTypeScriptModule("lib/outcomes.ts");
+const championKnowledgeModule = loadTypeScriptModule(
+  "lib/championKnowledge.ts"
+);
 const { buildReviewPrompt } = loadTypeScriptModule("lib/prompts.ts", {
   "@/lib/outcomes": outcomesModule,
+  "@/lib/championKnowledge": championKnowledgeModule,
 });
 
 const baseInput = {
@@ -327,6 +331,29 @@ test("non-death scenes require neutral confidence-note wording", () => {
   assert.match(nonDeathPrompt, /This is not a death scene/);
   assert.match(nonDeathPrompt, /never use "death cause", "사망 원인"/);
   assert.match(deathPrompt, /This is a death scene/);
+});
+
+test("review prompt includes enemy champion knowledge as cautious reference", () => {
+  const prompt = buildReviewPrompt(
+    makeInput({
+      enemyChampion: "Fizz",
+      currentOutcome: "failed_kill_attempt",
+      sceneOutcomeAssessment: "questionable",
+    }),
+    [],
+    [],
+    "",
+    "SOLO_KILL_TRADE"
+  );
+
+  assert.match(prompt, /Enemy champion knowledge/);
+  assert.match(prompt, /Enemy mid champion: Fizz/);
+  assert.match(prompt, /E 재간둥이 회피\/무적/);
+  assert.match(prompt, /복기용 가설: 이 장면은 상대 핵심 스킬 확인 여부가 중요합니다/);
+  assert.match(prompt, /Do not invent cooldowns/);
+  assert.match(prompt, /If the input does not confirm whether a key skill was used/);
+  assert.match(prompt, /Fizz E 사용 여부가 확인되지 않았다면/);
+  assert.match(prompt, /Bad wording example/);
 });
 
 const objectiveFixtures = [
