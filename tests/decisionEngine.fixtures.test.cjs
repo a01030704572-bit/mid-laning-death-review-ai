@@ -101,14 +101,31 @@ function assertIncludesAll(actual, expected) {
   }
 }
 
-test("SOLO_KILL_TRADE keeps priority over stale pre-lane defaults", () => {
+test("solo kill outcome routes to advantage conversion over stale pre-lane defaults", () => {
   const { scenarioType } = analyze({
     currentOutcome: "solo_kill",
     gameTime: "pre_lane",
     laneState: "pre_lane",
   });
 
-  assert.equal(scenarioType, "SOLO_KILL_TRADE");
+  assert.equal(scenarioType, "ADVANTAGE_CONVERSION");
+});
+
+test("deathCause solo kill with death or loss routes to solo kill trade", () => {
+  assert.equal(
+    analyze({
+      currentOutcome: "death",
+      deathCause: "solo_kill",
+    }).scenarioType,
+    "SOLO_KILL_TRADE"
+  );
+  assert.equal(
+    analyze({
+      currentOutcome: "survived_but_lost",
+      deathCause: "solo_kill",
+    }).scenarioType,
+    "SOLO_KILL_TRADE"
+  );
 });
 
 test("legacy Level 3-E fields generate canonical enemy-cover tags", () => {
@@ -160,13 +177,13 @@ test("explicit mid roam route wins over stale objective and pre-lane fields", ()
   assert.equal(scenarioType, "MID_ROAM_FIGHT_JOIN");
 });
 
-test("solo-kill routing still wins over explicit mid roam stale state", () => {
+test("solo kill outcome routes to advantage conversion over stale death cause", () => {
   const { scenarioType } = analyze({
     currentOutcome: "solo_kill",
     deathCause: "mid_roam_fight_join",
   });
 
-  assert.equal(scenarioType, "SOLO_KILL_TRADE");
+  assert.equal(scenarioType, "ADVANTAGE_CONVERSION");
 });
 
 test("enemy jungle seen opposite side does not count as nearby enemy cover", () => {

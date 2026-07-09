@@ -33,14 +33,15 @@ export function determineScenarioType(
   riskTags: RiskTag[]
 ): ScenarioType {
   const tagSet = new Set<RiskTag>(riskTags);
-  
-// 1. Strong solo-kill signal should override stale pre-lane defaults.
-  if (
-  input.deathCause === "solo_kill" ||
-  input.currentOutcome === "solo_kill"
-) {
-  return "SOLO_KILL_TRADE";
-}
+  // Successful solo kills should review how the player converted the advantage.
+  if (input.currentOutcome === "solo_kill") {
+    return "ADVANTAGE_CONVERSION";
+  }
+
+  // Failed/lost solo-kill attempts should stay in 1v1 trade review.
+  if (input.deathCause === "solo_kill") {
+    return "SOLO_KILL_TRADE";
+  }
 
   if (input.deathCause === "mid_roam_fight_join") {
     return "MID_ROAM_FIGHT_JOIN";
