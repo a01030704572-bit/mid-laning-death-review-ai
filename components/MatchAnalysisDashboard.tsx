@@ -1,5 +1,6 @@
 import PostGameSummaryCard from "@/components/PostGameSummaryCard";
 import RankedSceneCard from "@/components/RankedSceneCard";
+import type { AppMode } from "@/lib/appMode";
 import type {
   MatchReviewReport,
   RankedReviewScene,
@@ -10,6 +11,7 @@ type MatchAnalysisDashboardProps = {
   report: MatchReviewReport | null;
   selectedScene: RankedReviewScene | null;
   onSelectScene: (scene: RankedReviewScene) => void;
+  appMode?: AppMode;
 };
 
 type SceneSectionProps = {
@@ -21,6 +23,7 @@ type SceneSectionProps = {
   sceneBundlesByRepresentative: Map<string, SceneBundle>;
   onSelectScene: (scene: RankedReviewScene) => void;
   showBundleSummary?: boolean;
+  appMode?: AppMode;
 };
 
 function SceneSection({
@@ -32,6 +35,7 @@ function SceneSection({
   sceneBundlesByRepresentative,
   onSelectScene,
   showBundleSummary = false,
+  appMode = "user",
 }: SceneSectionProps) {
   return (
     <section className="space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
@@ -52,6 +56,7 @@ function SceneSection({
               scene={scene}
               sceneBundle={sceneBundlesByRepresentative.get(scene.sceneId)}
               showBundleSummary={showBundleSummary}
+              appMode={appMode}
               isSelected={selectedScene?.sceneId === scene.sceneId}
               onClick={() => onSelectScene(scene)}
             />
@@ -66,12 +71,21 @@ export default function MatchAnalysisDashboard({
   report,
   selectedScene,
   onSelectScene,
+  appMode = "user",
 }: MatchAnalysisDashboardProps) {
   if (!report) return null;
 
-  const improvementScenes = report.improvementScenes.slice(0, 5);
+  const isDebugMode = appMode === "debug";
+  const topScenes = report.topScenes.slice(0, isDebugMode ? 5 : 3);
+  const topSceneIds = new Set(topScenes.map((scene) => scene.sceneId));
+  const improvementScenes = (
+    isDebugMode
+      ? report.improvementScenes
+      : report.improvementScenes.filter(
+          (scene) => !topSceneIds.has(scene.sceneId)
+        )
+  ).slice(0, isDebugMode ? 5 : 3);
   const strengthScenes = report.strengthScenes.slice(0, 3);
-  const topScenes = report.topScenes.slice(0, 5);
   const sceneBundlesByRepresentative = new Map(
     (report.sceneBundles ?? []).map((sceneBundle) => [
       sceneBundle.representative.sceneId,
@@ -109,24 +123,29 @@ export default function MatchAnalysisDashboard({
           selectedScene={selectedScene}
           sceneBundlesByRepresentative={sceneBundlesByRepresentative}
           showBundleSummary
+          appMode={appMode}
           onSelectScene={onSelectScene}
         />
-        <SceneSection
-          title="유지할 좋은 판단"
-          description="다음 판에도 유지할 만한 좋은 판단 후보입니다."
-          scenes={strengthScenes}
-          emptyText="아직 유지할 좋은 판단 후보가 분리되지 않았습니다."
-          selectedScene={selectedScene}
-          sceneBundlesByRepresentative={sceneBundlesByRepresentative}
-          onSelectScene={onSelectScene}
-        />
+        {(isDebugMode || strengthScenes.length > 0) && (
+          <SceneSection
+            title="유지할 좋은 판단"
+            description="다음 판에도 유지할 만한 좋은 판단 후보입니다."
+            scenes={strengthScenes}
+            emptyText="아직 자동으로 분리된 강점 후보가 없습니다."
+            selectedScene={selectedScene}
+            sceneBundlesByRepresentative={sceneBundlesByRepresentative}
+            appMode={appMode}
+            onSelectScene={onSelectScene}
+          />
+        )}
         <SceneSection
           title="다음에 체크할 후보"
           description="위험 판단, 놓친 전환, 반복 습관으로 이어질 수 있는 후보입니다."
           scenes={improvementScenes}
-          emptyText="아직 다음에 체크할 후보가 분리되지 않았습니다."
+          emptyText="아직 다음에 체크할 후보가 없습니다."
           selectedScene={selectedScene}
           sceneBundlesByRepresentative={sceneBundlesByRepresentative}
+          appMode={appMode}
           onSelectScene={onSelectScene}
         />
       </div>

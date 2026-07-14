@@ -56,16 +56,21 @@ function SourceCard({
 }
 
 function EvidenceDetails({
+  id,
   title,
   description,
   children,
 }: {
+  id?: string;
   title: string;
   description: string;
   children: ReactNode;
 }) {
   return (
-    <details className="group rounded-2xl border border-zinc-200 bg-white">
+    <details
+      id={id}
+      className="group scroll-mt-6 rounded-2xl border border-zinc-200 bg-white"
+    >
       <summary className="cursor-pointer list-none px-4 py-3 marker:hidden">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -199,6 +204,7 @@ export default function SceneReviewBuilder({
         </EvidenceDetails>
 
         <EvidenceDetails
+          id="riot-evidence-section"
           title="Riot 경기 기록으로 근거 확인하기"
           description="킬, 데스, 오브젝트, 성장 변화 이벤트를 보조 근거로 확인합니다."
         >

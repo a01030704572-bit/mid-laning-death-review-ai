@@ -1,3 +1,4 @@
+import type { AppMode } from "@/lib/appMode";
 import type {
   RankedReviewScene,
   SceneBundle,
@@ -8,6 +9,7 @@ type RankedSceneCardProps = {
   scene: RankedReviewScene;
   sceneBundle?: SceneBundle;
   showBundleSummary?: boolean;
+  appMode?: AppMode;
   isSelected: boolean;
   onClick: () => void;
 };
@@ -40,6 +42,19 @@ function getEvidenceBullets(scene: RankedReviewScene) {
   return summaries.filter(Boolean).slice(0, 3);
 }
 
+function getUserReason(scene: RankedReviewScene) {
+  switch (scene.sceneValence) {
+    case "good_decision":
+      return "이번 경기에서 다음 판에도 유지할 만한 판단 후보입니다.";
+    case "bad_decision":
+      return "다음 판에서 같은 조건이 나오면 먼저 체크할 위험 판단 후보입니다.";
+    case "missed_opportunity":
+      return "이득을 얻은 뒤 다음 행동 선택을 점검할 전환 후보입니다.";
+    case "pattern_flag":
+      return "반복될 수 있는 판단 습관을 확인할 후보입니다.";
+  }
+}
+
 function sceneBundleLabelKo(sceneBundle: SceneBundle) {
   switch (sceneBundle.clusterType) {
     case "same_event_multi_type":
@@ -67,14 +82,17 @@ export default function RankedSceneCard({
   scene,
   sceneBundle,
   showBundleSummary = false,
+  appMode = "user",
   isSelected,
   onClick,
 }: RankedSceneCardProps) {
+  const isDebugMode = appMode === "debug";
   const evidenceBullets = getEvidenceBullets(scene);
   const nearbyScenes = sceneBundle?.nearby ?? [];
   const sceneBundleLabel = sceneBundle ? sceneBundleLabelKo(sceneBundle) : null;
   const shouldShowBundleSummary =
-    showBundleSummary && sceneBundle && nearbyScenes.length > 0;
+    isDebugMode && showBundleSummary && sceneBundle && nearbyScenes.length > 0;
+  const firstConfirmationQuestion = scene.confirmationQuestions[0];
 
   return (
     <button
@@ -90,7 +108,9 @@ export default function RankedSceneCard({
         <div>
           <p className="text-xs font-medium text-zinc-500">
             {formatGameTime(scene.gameTimeSec)}
-            {scene.windowSec ? ` · ${scene.windowSec}초 window` : ""}
+            {isDebugMode && scene.windowSec
+              ? ` · ${scene.windowSec}초 window`
+              : ""}
           </p>
           <h3 className="mt-1 text-sm font-bold text-zinc-950">
             {scene.displayNameKo}
@@ -108,17 +128,33 @@ export default function RankedSceneCard({
         </div>
       </div>
 
-      <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-zinc-950 px-3 py-1 text-xs font-semibold text-white">
-        <span>복기 가치 점수</span>
-        <span>{scene.reviewWorthinessScore}</span>
-      </div>
+      {isDebugMode ? (
+        <>
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-zinc-950 px-3 py-1 text-xs font-semibold text-white">
+            <span>복기 가치 점수</span>
+            <span>{scene.reviewWorthinessScore}</span>
+          </div>
 
-      {evidenceBullets.length > 0 && (
-        <ul className="mt-3 list-disc space-y-1 pl-5 text-xs leading-5 text-zinc-600">
-          {evidenceBullets.map((summary) => (
-            <li key={summary}>{summary}</li>
-          ))}
-        </ul>
+          {evidenceBullets.length > 0 && (
+            <ul className="mt-3 list-disc space-y-1 pl-5 text-xs leading-5 text-zinc-600">
+              {evidenceBullets.map((summary) => (
+                <li key={summary}>{summary}</li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : (
+        <div className="mt-3 space-y-2">
+          <p className="text-xs leading-5 text-zinc-600">
+            {getUserReason(scene)}
+          </p>
+          {firstConfirmationQuestion && (
+            <p className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+              <span className="font-semibold">확인할 것: </span>
+              {firstConfirmationQuestion.questionKo}
+            </p>
+          )}
+        </div>
       )}
 
       {shouldShowBundleSummary && (

@@ -118,6 +118,77 @@ function AutomaticReviewEmptyState() {
   );
 }
 
+function AutomaticReviewStartCta() {
+  const badges = ["대표 장면", "유지할 좋은 판단", "다음에 체크할 후보"];
+
+  function handleConnectRiotClick() {
+    const riotEvidenceSection = document.getElementById(
+      "riot-evidence-section"
+    );
+
+    if (riotEvidenceSection instanceof HTMLDetailsElement) {
+      riotEvidenceSection.open = true;
+    }
+
+    riotEvidenceSection?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  return (
+    <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+            Automatic Post-game Review
+          </p>
+          <h2 className="mt-2 text-xl font-bold text-zinc-950">
+            이번 판 자동 리뷰
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-600">
+            Riot 매치를 연결하면 킬/데스/오브젝트 이벤트를 바탕으로 먼저 볼 장면과 다음 판 목표를 정리합니다.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {badges.map((badge) => (
+            <span
+              key={badge}
+              className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-600"
+            >
+              {badge}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-zinc-950">
+              Riot 경기 기록 연결
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-zinc-600">
+              최근 경기 기록을 불러오면 킬/데스/오브젝트 이벤트를 바탕으로 대표 장면과 다음 판 목표를 정리합니다.
+            </p>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">
+              수동 입력 없이도 자동 후보를 먼저 확인할 수 있습니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleConnectRiotClick}
+            className="w-full rounded-lg bg-zinc-950 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
+          >
+            Riot 경기 기록 연결하기
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const [reviewData, setReviewData] = useState<{
     riskTags: RiskTag[];
@@ -290,6 +361,7 @@ export default function Home() {
           report={matchReviewReport}
           selectedScene={selectedScene}
           onSelectScene={setSelectedScene}
+          appMode={appMode}
         />
       </div>
     ) : null;
@@ -312,7 +384,7 @@ export default function Home() {
           repeatedPatternPreviewResults={repeatedPatternPreviewResults}
         />
       }
-      topSummary={matchAnalysisPanel ?? <AutomaticReviewEmptyState />}
+      topSummary={matchAnalysisPanel ?? <AutomaticReviewStartCta />}
       sceneBuilder={
         <SceneReviewBuilder
           manualForm={
