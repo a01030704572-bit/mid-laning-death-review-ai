@@ -373,6 +373,44 @@ test("review prompt includes enemy champion knowledge as cautious reference", ()
   assert.match(prompt, /Bad wording example/);
 });
 
+test("review prompt includes inferred key skill rules for unknown champions", () => {
+  const prompt = buildReviewPrompt(
+    makeInput({
+      enemyChampion: "LeBlanc",
+      currentOutcome: "failed_kill_attempt",
+      sceneOutcomeAssessment: "questionable",
+    }),
+    [],
+    [],
+    "",
+    "SOLO_KILL_TRADE"
+  );
+
+  assert.match(prompt, /Enemy champion inferred key skill hypothesis/);
+  assert.match(prompt, /Enemy mid champion: LeBlanc/);
+  assert.match(prompt, /Treat every inferred skill as an unverified hypothesis/);
+  assert.match(prompt, /Do not claim a skill was used, available, unavailable, or on cooldown/);
+  assert.match(prompt, /확인해야 할 변수/);
+  assert.match(prompt, /복기 질문/);
+  assert.match(prompt, /keySkillHypotheses/);
+  assert.match(prompt, /confirmed_by_evidence/);
+  assert.match(prompt, /Never mark a skill confirmed just because champion knowledge says it is important/);
+});
+
+test("review prompt omits inferred key skill block when enemy champion is empty", () => {
+  const prompt = buildReviewPrompt(
+    makeInput({
+      enemyChampion: "",
+    }),
+    [],
+    [],
+    "",
+    "GENERAL_LANING_DEATH"
+  );
+
+  assert.doesNotMatch(prompt, /Enemy champion inferred key skill hypothesis/);
+});
+
 const objectiveFixtures = [
   {
     name: "force without mid priority and miss the alternative wave",

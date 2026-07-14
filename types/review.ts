@@ -404,6 +404,12 @@ export type ReviewResult = {
   next_laning_goal: string;
   risk_checklist: string[];
   confidence_note: string;
+  keySkillHypotheses?: {
+    skill: string;
+    source: "known_champion_db" | "model_inferred";
+    status: "confirmed_by_evidence" | "hypothesis" | "no_evidence";
+    reasonKo?: string;
+  }[];
   // 하위 호환 유지용 (기존 UI 필드)
   coachFeedback?: CoachFeedback;
   situationUnderstanding?: string;

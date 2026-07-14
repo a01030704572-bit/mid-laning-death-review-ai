@@ -1,6 +1,9 @@
 import { DeathReviewInput, RiskTag, ScenarioType } from "@/types/review";
 import { CoachingCategory } from "@/lib/coachingCategories";
-import { buildEnemyChampionKnowledgePromptBlock } from "@/lib/championKnowledge";
+import {
+  buildEnemyChampionKnowledgePromptBlock,
+  buildInferredKeySkillPromptBlock,
+} from "@/lib/championKnowledge";
 import { getOutcomeLabel } from "@/lib/outcomes";
 
 function getScenarioGuidance(
@@ -151,7 +154,8 @@ export function buildReviewPrompt(
     : 'This is not a death scene. In confidence_note, never use "death cause", "사망 원인", or other death-specific wording. Use neutral wording such as "장면 판단", "판단 근거", "이득과 손해의 원인", or "추가 확인이 필요한 정보".';
 
   const enemyChampionKnowledgeBlock =
-    buildEnemyChampionKnowledgePromptBlock(input.enemyChampion);
+    buildEnemyChampionKnowledgePromptBlock(input.enemyChampion) ||
+    buildInferredKeySkillPromptBlock(input.enemyChampion);
 
   return `
 
@@ -500,7 +504,15 @@ Return ONLY valid JSON with this exact structure:
   "coverAndEscapeAnalysis": "string (Korean; fill when Level 3-E cover/fight-direction fields or tags are relevant, otherwise empty string)",
   "next_laning_goal": "string (one concrete Korean goal for the next game)",
   "risk_checklist": ["string", "string", "string (2–4 items in Korean)"],
-  "confidence_note": "string (Korean)"
+  "confidence_note": "string (Korean)",
+  "keySkillHypotheses": [
+    {
+      "skill": "string",
+      "source": "known_champion_db | model_inferred",
+      "status": "confirmed_by_evidence | hypothesis | no_evidence",
+      "reasonKo": "string (short Korean explanation, optional)"
+    }
+  ]
 }
 
 Field meaning:
@@ -514,6 +526,7 @@ Field meaning:
 - next_laning_goal: One concrete habit or decision rule the player can apply next game. Write in Korean. Prefer condition-based rules like "A 상황에서는 B를 먼저 확인한다."
 - risk_checklist: 2–4 short Korean checklist items the player should mentally check in similar situations.
 - confidence_note: How confident this review is and why, based only on given input. Write in Korean.
+- keySkillHypotheses: Optional. Include only when champion key skills are relevant to this review. Use source "known_champion_db" only when using the static seed champion knowledge. Use source "model_inferred" only when inferring key skill hypotheses for an unknown champion. Use status "confirmed_by_evidence" only when manual input, video evidence, or Riot evidence confirms the skill state. Use "hypothesis" for likely but unconfirmed key skills, and "no_evidence" for important skills that need replay confirmation. Never mark a skill confirmed just because champion knowledge says it is important.
 
 
 Relevant coaching categories:

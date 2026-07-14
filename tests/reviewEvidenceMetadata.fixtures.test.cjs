@@ -284,6 +284,34 @@ test("existing /api/review response remains compatible", async () => {
   assert.ok(Array.isArray(response.body.coachingCategories));
 });
 
+test("/api/review preserves optional keySkillHypotheses in ReviewResult", async () => {
+  const resultWithKeySkills = {
+    ...baseReviewResult,
+    keySkillHypotheses: [
+      {
+        skill: "Fizz E",
+        source: "known_champion_db",
+        status: "hypothesis",
+        reasonKo: "스킬 사용 여부는 확인이 필요합니다.",
+      },
+    ],
+  };
+  const { routeModule } = loadReviewRoute({
+    generateCoachingReview: async () => JSON.stringify(resultWithKeySkills),
+  });
+  const response = await postReview(routeModule, makeInput());
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.result.keySkillHypotheses, [
+    {
+      skill: "Fizz E",
+      source: "known_champion_db",
+      status: "hypothesis",
+      reasonKo: "스킬 사용 여부는 확인이 필요합니다.",
+    },
+  ]);
+});
+
 test("manual-only review returns evidenceMetadata with manual sourcePresence true", async () => {
   const { routeModule } = loadReviewRoute();
   const response = await postReview(routeModule, makeInput());

@@ -1,10 +1,12 @@
 import { ReviewResult, RiskTag, ScenarioType } from "@/types/review";
 import { sanitizeUserFacingText } from "@/lib/userFacingText";
+import type { AppMode } from "@/lib/appMode";
 
 type Props = {
   riskTags: RiskTag[];
   scenarioType?: ScenarioType;
   result: ReviewResult;
+  appMode?: AppMode;
 };
 
 const RISK_FACTOR_EXPLANATION_OVERRIDES: Record<string, string> = {
@@ -70,7 +72,12 @@ function getRiskFactorExplanation(tag: string, explanation: string) {
   return RISK_FACTOR_EXPLANATION_OVERRIDES[tag] ?? explanation;
 }
 
-export default function ReviewResultCard({ riskTags, scenarioType, result }: Props) {
+export default function ReviewResultCard({
+  riskTags,
+  scenarioType,
+  result,
+  appMode = "user",
+}: Props) {
   const detectedScenario = scenarioType ?? result.scenario_type;
   const scenarioInfo = detectedScenario ? SCENARIO_LABELS[detectedScenario] : null;
   const displayRiskTags = getDisplayRiskTags(riskTags);
@@ -215,6 +222,38 @@ export default function ReviewResultCard({ riskTags, scenarioType, result }: Pro
           </ul>
         </Section>
       )}
+
+      {appMode === "debug" &&
+        result.keySkillHypotheses &&
+        result.keySkillHypotheses.length > 0 && (
+          <Section title="핵심 스킬 가설 디버그">
+            <div className="space-y-2">
+              {result.keySkillHypotheses.map((hypothesis, index) => (
+                <div
+                  key={`${hypothesis.skill}-${index}`}
+                  className="rounded-lg border border-zinc-200 bg-white p-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-zinc-900">
+                      {sanitizeUserFacingText(hypothesis.skill)}
+                    </span>
+                    <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+                      {hypothesis.source}
+                    </span>
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                      {hypothesis.status}
+                    </span>
+                  </div>
+                  {hypothesis.reasonKo && (
+                    <p className="mt-2 text-xs leading-5 text-zinc-600">
+                      {sanitizeUserFacingText(hypothesis.reasonKo)}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
 
       {/* Confidence Note */}
       <div className="rounded-xl border border-zinc-200 p-3 text-sm leading-6 text-zinc-600">

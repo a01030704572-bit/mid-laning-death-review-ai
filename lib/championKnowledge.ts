@@ -8,6 +8,10 @@ export type ChampionKnowledge = {
   coachingHintKo: string;
 };
 
+// Seed/reference champion knowledge only.
+// This is not intended to become a manually maintained full champion database.
+// For champions outside this list, use AI-inferred hypotheses with strict
+// evidence and uncertainty rules instead of expanding this table by default.
 const CHAMPION_KNOWLEDGE: ChampionKnowledge[] = [
   {
     championName: "Ahri",
@@ -110,6 +114,10 @@ export function getChampionKnowledge(
   );
 }
 
+export function getSeedChampionKnowledgeNames() {
+  return CHAMPION_KNOWLEDGE.map((knowledge) => knowledge.championName);
+}
+
 export function buildEnemyChampionKnowledgePromptBlock(
   enemyChampion?: string
 ) {
@@ -129,9 +137,28 @@ Enemy champion knowledge reference:
 Champion knowledge usage rules:
 - Use this champion knowledge only as matchup reference, not as absolute truth.
 - 복기용 가설: 이 장면은 상대 핵심 스킬 확인 여부가 중요합니다.
+- For keySkillHypotheses, use source "known_champion_db" and status "hypothesis" or "no_evidence" unless evidence confirms it.
 - Do not invent cooldowns, spell usage, or exact availability that were not observed in the input, video, or Riot evidence.
 - If the input does not confirm whether a key skill was used, phrase it as a check question, not a confirmed mistake.
 - Good wording example: "Fizz E 사용 여부가 확인되지 않았다면, 이 킬각은 확정하기 어렵습니다."
 - Bad wording example: "Fizz E가 있었는데 무리하게 들어갔습니다."
+`;
+}
+
+export function buildInferredKeySkillPromptBlock(enemyChampion?: string) {
+  const championName = enemyChampion?.trim();
+  if (!championName) return "";
+  if (getChampionKnowledge(championName)) return "";
+
+  return `
+Enemy champion inferred key skill hypothesis:
+- Enemy mid champion: ${championName}
+- No static seed champion knowledge exists for this champion.
+- If you have enough general League of Legends knowledge about this champion, infer likely key threat skills, defensive/counterplay tools, and punish windows.
+- Treat every inferred skill as an unverified hypothesis unless manual input, video evidence, or Riot evidence confirms the skill state.
+- Do not claim a skill was used, available, unavailable, or on cooldown unless the provided evidence confirms it.
+- If evidence is missing, phrase the point as 확인해야 할 변수, 복기 질문, or 가능성이 높은 핵심 스킬 후보.
+- If you are not confident about this champion's skills, do not invent skill names. Fall back to general scenario-based review questions.
+- For keySkillHypotheses, use source "model_inferred" and status "hypothesis" or "no_evidence" unless evidence confirms it.
 `;
 }

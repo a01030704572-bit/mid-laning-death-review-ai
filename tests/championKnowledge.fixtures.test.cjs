@@ -30,8 +30,10 @@ function loadTypeScriptModule(relativePath) {
 }
 
 const {
+  buildInferredKeySkillPromptBlock,
   buildEnemyChampionKnowledgePromptBlock,
   getChampionKnowledge,
+  getSeedChampionKnowledgeNames,
 } = loadTypeScriptModule("lib/championKnowledge.ts");
 
 test("getChampionKnowledge returns Fizz knowledge", () => {
@@ -59,6 +61,35 @@ test("enemy champion prompt block warns against confirmed cooldown claims", () =
 
   assert.match(block, /E 재간둥이 회피\/무적/);
   assert.match(block, /Use this champion knowledge only as matchup reference/);
+  assert.match(block, /known_champion_db/);
   assert.match(block, /Do not invent cooldowns/);
   assert.match(block, /check question, not a confirmed mistake/);
+});
+
+test("static seed champion list stays limited to the approved five champions", () => {
+  assert.deepEqual(getSeedChampionKnowledgeNames(), [
+    "Ahri",
+    "Fizz",
+    "Vex",
+    "Zed",
+    "Akali",
+  ]);
+});
+
+test("unknown champion gets inferred key skill hypothesis prompt block", () => {
+  const block = buildInferredKeySkillPromptBlock("LeBlanc");
+
+  assert.match(block, /Enemy champion inferred key skill hypothesis/);
+  assert.match(block, /Enemy mid champion: LeBlanc/);
+  assert.match(block, /unverified hypothesis/);
+  assert.match(block, /Do not claim a skill was used/);
+  assert.match(block, /확인해야 할 변수/);
+  assert.match(block, /복기 질문/);
+  assert.match(block, /model_inferred/);
+});
+
+test("known or empty champion does not get inferred prompt block", () => {
+  assert.equal(buildInferredKeySkillPromptBlock("Fizz"), "");
+  assert.equal(buildInferredKeySkillPromptBlock(""), "");
+  assert.equal(buildInferredKeySkillPromptBlock(undefined), "");
 });

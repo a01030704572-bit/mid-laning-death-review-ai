@@ -223,6 +223,7 @@ export default function Home() {
         riskTags={reviewData.riskTags}
         scenarioType={reviewData.scenarioType}
         result={reviewData.result}
+        appMode={appMode}
       />
       <EvidenceMetadataPreview evidenceMetadata={reviewData.evidenceMetadata} />
     </div>
