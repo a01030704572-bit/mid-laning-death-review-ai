@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   RiotMatchListItem,
   RiotMatchListResponse,
@@ -52,6 +52,13 @@ function objectiveLabel(value: string) {
 type RiotEvidencePanelProps = {
   embedded?: boolean;
   appMode?: AppMode;
+  mode?: "connectorOnly" | "full";
+  selectedAutoSceneForEvidence?: {
+    sceneId: string;
+    title: string;
+    gameTimeSec: number;
+    windowSec?: number;
+  } | null;
   onEvidenceChange?: (
     evidence: RiotTimelineEvidence | null,
     lockedRiotContext?: LockedRiotVideoContext | null
@@ -62,6 +69,8 @@ type RiotEvidencePanelProps = {
 export default function RiotEvidencePanel({
   embedded = false,
   appMode = "user",
+  mode = "full",
+  selectedAutoSceneForEvidence = null,
   onEvidenceChange,
   onMatchReviewRequested,
 }: RiotEvidencePanelProps) {
@@ -76,12 +85,50 @@ export default function RiotEvidencePanel({
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [loadingEvidence, setLoadingEvidence] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isManualTimeEditOpen, setIsManualTimeEditOpen] = useState(
+    appMode === "debug"
+  );
+  const isConnectorOnly = mode === "connectorOnly";
   const primaryEvents = evidence
     ? evidence.events.filter((event) => event.importance !== "minor")
     : [];
   const minorEvents = evidence
     ? evidence.events.filter((event) => event.importance === "minor")
     : [];
+  const windowOptions = [30, 60, 90, 120];
+  const selectedAutoSceneLabel = selectedAutoSceneForEvidence
+    ? `${formatDuration(selectedAutoSceneForEvidence.gameTimeSec)} · ${selectedAutoSceneForEvidence.title}`
+    : null;
+  const shouldUseManualTimeFallback =
+    !isConnectorOnly && appMode !== "debug" && Boolean(selectedAutoSceneForEvidence);
+  const shouldShowManualTimeControls =
+    !isConnectorOnly && (!shouldUseManualTimeFallback || isManualTimeEditOpen);
+
+  useEffect(() => {
+    if (!selectedAutoSceneForEvidence) return;
+
+    setGameTime(formatDuration(selectedAutoSceneForEvidence.gameTimeSec));
+    if (
+      selectedAutoSceneForEvidence.windowSec !== undefined &&
+      Number.isFinite(selectedAutoSceneForEvidence.windowSec) &&
+      selectedAutoSceneForEvidence.windowSec > 0
+    ) {
+      setWindowSec(selectedAutoSceneForEvidence.windowSec);
+    }
+  }, [
+    selectedAutoSceneForEvidence?.sceneId,
+    selectedAutoSceneForEvidence?.gameTimeSec,
+    selectedAutoSceneForEvidence?.windowSec,
+  ]);
+
+  useEffect(() => {
+    if (appMode === "debug" || !selectedAutoSceneForEvidence) {
+      setIsManualTimeEditOpen(true);
+      return;
+    }
+
+    setIsManualTimeEditOpen(false);
+  }, [appMode, selectedAutoSceneForEvidence?.sceneId]);
 
   async function loadMatches() {
     setError(null);
@@ -257,6 +304,9 @@ export default function RiotEvidencePanel({
                   setSelectedMatch(match);
                   setEvidence(null);
                   onEvidenceChange?.(null);
+                  if (isConnectorOnly) {
+                    onMatchReviewRequested?.(match.matchId, match.puuid);
+                  }
                 }}
                 className={`rounded-xl border p-3 text-left text-sm ${
                   selectedMatch?.matchId === match.matchId
@@ -282,39 +332,72 @@ export default function RiotEvidencePanel({
         </div>
       )}
 
-      {selectedMatch && (
-        <div className="grid gap-3 border-t border-zinc-200 pt-4 md:grid-cols-3">
-          <label className="text-sm font-medium text-zinc-800">
-            게임 시간
-            <input
-              value={gameTime}
-              onChange={(event) => setGameTime(event.target.value)}
-              placeholder="예: 7:30 또는 450"
-              className="mt-1 w-full rounded-lg border border-zinc-300 p-2 text-sm"
-            />
-          </label>
-          <label className="text-sm font-medium text-zinc-800">
-            장면 이후 분석 범위
-            <select
-              value={windowSec}
-              onChange={(event) => setWindowSec(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-zinc-300 bg-white p-2 text-sm"
+      {selectedMatch && !isConnectorOnly && (
+        <div className="space-y-3 border-t border-zinc-200 pt-4">
+          {selectedAutoSceneLabel && (
+            <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm leading-6 text-sky-800">
+              <p className="font-semibold">
+                선택한 자동 장면 기준으로 Riot 근거를 확인합니다:
+              </p>
+              <p className="mt-1">{selectedAutoSceneLabel}</p>
+              <p className="mt-1 text-xs text-sky-700">
+                자동 장면 시간이 맞지 않으면 직접 수정할 수 있습니다.
+              </p>
+            </div>
+          )}
+
+          {shouldUseManualTimeFallback && (
+            <button
+              type="button"
+              onClick={() => setIsManualTimeEditOpen((isOpen) => !isOpen)}
+              className="w-fit rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
             >
-              <option value={30}>30초</option>
-              <option value={60}>60초</option>
-              <option value={90}>90초</option>
-              <option value={120}>120초</option>
-            </select>
-            <span className="mt-1 block text-xs font-normal text-zinc-500">
-              입력한 게임 시간부터 이후 N초 동안의 Riot timeline 이벤트와 delta를 확인합니다.
-            </span>
-          </label>
+              {isManualTimeEditOpen
+                ? "직접 시간 수정 접기"
+                : "시간이 다르면 직접 수정하기"}
+            </button>
+          )}
+
+          {shouldShowManualTimeControls && (
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-medium text-zinc-800">
+                게임 시간
+                <input
+                  value={gameTime}
+                  onChange={(event) => setGameTime(event.target.value)}
+                  placeholder="예: 7:30 또는 450"
+                  className="mt-1 w-full rounded-lg border border-zinc-300 p-2 text-sm"
+                />
+              </label>
+              <label className="text-sm font-medium text-zinc-800">
+                장면 이후 분석 범위
+                <select
+                  value={windowSec}
+                  onChange={(event) => setWindowSec(Number(event.target.value))}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 bg-white p-2 text-sm"
+                >
+                  {!windowOptions.includes(windowSec) && (
+                    <option value={windowSec}>{windowSec}초</option>
+                  )}
+                  {windowOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}초
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-1 block text-xs font-normal text-zinc-500">
+                  입력한 게임 시간부터 이후 N초 동안의 Riot timeline 이벤트와 delta를 확인합니다.
+                </span>
+              </label>
+            </div>
+          )}
+
           <div className="flex items-end">
             <button
               type="button"
               onClick={loadEvidence}
               disabled={loadingEvidence}
-              className="w-full rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+              className="w-full rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 sm:w-auto"
             >
               {loadingEvidence ? "Evidence 조회 중..." : "Riot Evidence 가져오기"}
             </button>
@@ -322,7 +405,7 @@ export default function RiotEvidencePanel({
         </div>
       )}
 
-      {evidence && appMode !== "debug" && (
+      {evidence && !isConnectorOnly && appMode !== "debug" && (
         <div className="space-y-3 border-t border-zinc-200 pt-4">
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">
             <p className="font-semibold">Riot 근거가 연결되었습니다.</p>
@@ -334,7 +417,7 @@ export default function RiotEvidencePanel({
         </div>
       )}
 
-      {evidence && appMode === "debug" && (
+      {evidence && !isConnectorOnly && appMode === "debug" && (
         <div className="space-y-3 border-t border-zinc-200 pt-4">
           <span className="inline-flex rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-semibold text-zinc-600">
             Debug mode

@@ -189,6 +189,41 @@ function AutomaticReviewStartCta() {
   );
 }
 
+function MatchReconnectSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <details
+      id="riot-evidence-section"
+      className="group scroll-mt-6 rounded-2xl border border-zinc-200 bg-white shadow-sm"
+    >
+      <summary className="cursor-pointer list-none px-4 py-3 marker:hidden">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-bold text-zinc-950">{title}</h2>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">
+              {description}
+            </p>
+          </div>
+          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-500 group-open:hidden">
+            열기
+          </span>
+          <span className="hidden rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-500 group-open:inline">
+            접기
+          </span>
+        </div>
+      </summary>
+      <div className="border-t border-zinc-200 p-4">{children}</div>
+    </details>
+  );
+}
+
 export default function Home() {
   const [reviewData, setReviewData] = useState<{
     riskTags: RiskTag[];
@@ -245,6 +280,16 @@ export default function Home() {
       }),
     [hasExistingCoreSceneInput, videoDraftTrustGate.blockedFields]
   );
+  const isUserMode = appMode === "user";
+  const hasAutomaticMatchReport = Boolean(matchReviewReport);
+  const selectedAutoSceneForEvidence = selectedScene
+    ? {
+        sceneId: selectedScene.sceneId,
+        title: selectedScene.displayNameKo,
+        gameTimeSec: selectedScene.gameTimeSec,
+        windowSec: selectedScene.windowSec,
+      }
+    : null;
 
   function handleVideoDraftChange(nextVideoDraft: VideoReviewDraft | null) {
     setVideoDraft(nextVideoDraft);
@@ -344,6 +389,16 @@ export default function Home() {
       </div>
     </div>
   );
+  const riotEvidencePanel = (
+    <RiotEvidencePanel
+      embedded
+      appMode={appMode}
+      mode={isUserMode ? "connectorOnly" : "full"}
+      selectedAutoSceneForEvidence={selectedAutoSceneForEvidence}
+      onEvidenceChange={handleRiotEvidenceChange}
+      onMatchReviewRequested={loadMatchReview}
+    />
+  );
   const matchAnalysisPanel =
     isMatchReviewLoading || matchReviewError || matchReviewReport ? (
       <div className="space-y-3">
@@ -367,7 +422,7 @@ export default function Home() {
     ) : null;
   const reviewResultPanel = reviewData ? (
     resultPanel
-  ) : (
+  ) : isUserMode ? null : (
     <div className="flex min-h-96 items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-zinc-500 shadow-sm">
       <div>
         아직 직접 생성한 Coaching Review 결과가 없습니다.
@@ -376,57 +431,68 @@ export default function Home() {
       </div>
     </div>
   );
+  const sceneBuilderPanel = isUserMode ? (
+    <MatchReconnectSection
+      title={
+        hasAutomaticMatchReport ? "다른 경기 불러오기" : "Riot 경기 기록 연결"
+      }
+      description={
+        hasAutomaticMatchReport
+          ? "다른 경기를 분석하려면 열어서 Riot 경기 기록을 다시 불러오세요."
+          : "최근 경기 기록을 불러오면 자동으로 복기할 장면을 찾습니다."
+      }
+    >
+      {riotEvidencePanel}
+    </MatchReconnectSection>
+  ) : (
+    <SceneReviewBuilder
+      manualForm={
+        <ManualReviewFallbackSection appMode={appMode}>
+          <DeathReviewForm
+            onResult={handleReviewResult}
+            videoDraft={videoDraft}
+            isVideoDraftApplied={isVideoDraftApplied}
+            videoDraftPatch={videoDraftPatch}
+            videoDraftPatchVersion={videoDraftPatchVersion}
+            onCoreSceneInputChange={setHasExistingCoreSceneInput}
+            riotEvidence={riotEvidence}
+          />
+        </ManualReviewFallbackSection>
+      }
+      videoDraftPanel={
+        <VideoDraftPanel
+          onDraftChange={handleVideoDraftChange}
+          embedded
+          lockedRiotContext={lockedRiotVideoContext}
+        />
+      }
+      riotEvidencePanel={riotEvidencePanel}
+      sourceState={{
+        hasManualInput: true,
+        hasVideoDraft: Boolean(videoDraft),
+        isVideoDraftApplied,
+        hasRiotEvidence: Boolean(riotEvidence),
+        isRiotEvidenceConnected: Boolean(riotEvidence),
+      }}
+      appMode={appMode}
+      hasAutomaticMatchReport={hasAutomaticMatchReport}
+      canApplyVideoDraftPatch={canApplyVideoDraftPatch}
+      onApplyVideoDraftPatch={handleApplyVideoDraftPatch}
+      videoDraftApplyWarning={videoDraftApplyWarning}
+    />
+  );
 
   return (
     <CoachingDashboardLayout
       insight={
-        <ReviewInsightPanel
-          repeatedPatternPreviewResults={repeatedPatternPreviewResults}
-        />
+        isUserMode ? null : (
+          <ReviewInsightPanel
+            repeatedPatternPreviewResults={repeatedPatternPreviewResults}
+          />
+        )
       }
       topSummary={matchAnalysisPanel ?? <AutomaticReviewStartCta />}
-      sceneBuilder={
-        <SceneReviewBuilder
-          manualForm={
-            <ManualReviewFallbackSection appMode={appMode}>
-              <DeathReviewForm
-                onResult={handleReviewResult}
-                videoDraft={videoDraft}
-                isVideoDraftApplied={isVideoDraftApplied}
-                videoDraftPatch={videoDraftPatch}
-                videoDraftPatchVersion={videoDraftPatchVersion}
-                onCoreSceneInputChange={setHasExistingCoreSceneInput}
-                riotEvidence={riotEvidence}
-              />
-            </ManualReviewFallbackSection>
-          }
-          videoDraftPanel={
-            <VideoDraftPanel
-              onDraftChange={handleVideoDraftChange}
-              embedded
-              lockedRiotContext={lockedRiotVideoContext}
-            />
-          }
-          riotEvidencePanel={
-            <RiotEvidencePanel
-              embedded
-              appMode={appMode}
-              onEvidenceChange={handleRiotEvidenceChange}
-              onMatchReviewRequested={loadMatchReview}
-            />
-          }
-          sourceState={{
-            hasManualInput: true,
-            hasVideoDraft: Boolean(videoDraft),
-            isVideoDraftApplied,
-            hasRiotEvidence: Boolean(riotEvidence),
-            isRiotEvidenceConnected: Boolean(riotEvidence),
-          }}
-          canApplyVideoDraftPatch={canApplyVideoDraftPatch}
-          onApplyVideoDraftPatch={handleApplyVideoDraftPatch}
-          videoDraftApplyWarning={videoDraftApplyWarning}
-        />
-      }
+      sceneBuilder={sceneBuilderPanel}
       result={reviewResultPanel}
       appMode={appMode}
     />

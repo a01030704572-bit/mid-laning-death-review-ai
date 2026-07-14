@@ -70,16 +70,24 @@ export default function CoachingDashboardLayout({
 
         {insight}
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(380px,0.95fr)]">
+        <section
+          className={
+            result
+              ? "grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(380px,0.95fr)]"
+              : "grid gap-6"
+          }
+        >
           <div>{sceneBuilder}</div>
 
-          <div className="space-y-4">
-            <SectionTitle
-              title="장면 분석 결과"
-              description="직접 복기 입력으로 생성한 코칭 결과와 연결된 근거 메타데이터를 확인합니다."
-            />
-            {result}
-          </div>
+          {result && (
+            <div className="space-y-4">
+              <SectionTitle
+                title="장면 분석 결과"
+                description="직접 복기 입력으로 생성한 코칭 결과와 연결된 근거 메타데이터를 확인합니다."
+              />
+              {result}
+            </div>
+          )}
         </section>
       </div>
     </main>
