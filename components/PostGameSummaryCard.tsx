@@ -11,7 +11,7 @@ type PostGameSummaryCardProps = {
 };
 
 function sceneLabel(scene: RankedReviewScene) {
-  return `${formatReviewSceneTime(scene.gameTimeSec)}의 ${scene.displayNameKo}`;
+  return `${formatReviewSceneTime(scene.gameTimeSec)} · ${scene.displayNameKo}`;
 }
 
 export default function PostGameSummaryCard({
@@ -31,7 +31,7 @@ export default function PostGameSummaryCard({
           <p className="mt-2 text-sm leading-6">
             {primaryScene
               ? `${sceneLabel(primaryScene)} 장면을 가장 먼저 복기해보세요.`
-              : "먼저 복기할 대표 장면이 아직 없습니다."}
+              : "Riot 경기 기록을 불러오면 먼저 볼 장면을 자동으로 정리합니다."}
           </p>
         </div>
 
@@ -45,11 +45,13 @@ export default function PostGameSummaryCard({
 
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <p className="text-xs font-semibold text-zinc-300">유지할 강점</p>
+          <p className="text-xs font-semibold text-zinc-300">
+            유지할 좋은 판단
+          </p>
           <p className="mt-2 text-sm leading-6 text-zinc-100">
             {strengthScene
               ? `${sceneLabel(strengthScene)} 판단은 다음 판에도 유지할 만한 장면입니다.`
-              : "아직 자동으로 분리된 강점 후보가 없습니다."}
+              : "아직 자동으로 분리된 좋은 판단 후보가 없습니다."}
           </p>
         </div>
 

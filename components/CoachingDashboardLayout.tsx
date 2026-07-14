@@ -3,6 +3,7 @@ import type { AppMode } from "@/lib/appMode";
 
 type CoachingDashboardLayoutProps = {
   insight: ReactNode;
+  topSummary?: ReactNode;
   sceneBuilder: ReactNode;
   result: ReactNode;
   appMode?: AppMode;
@@ -33,6 +34,7 @@ function SectionTitle({
 
 export default function CoachingDashboardLayout({
   insight,
+  topSummary,
   sceneBuilder,
   result,
   appMode = "user",
@@ -42,7 +44,7 @@ export default function CoachingDashboardLayout({
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-medium text-zinc-500">
-            League of Legends 1:1 AI Coaching MVP
+            League of Legends Post-game Review Preview
           </p>
 
           <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -51,19 +53,20 @@ export default function CoachingDashboardLayout({
                 Mid Laning Decision Review AI
               </h1>
               <p className="mt-3 text-sm leading-6 text-zinc-600 sm:text-base">
-                미드 라인 의사결정 습관을 복기하고 다음 판 행동 목표를
-                정리합니다.
+                Riot 경기 기록을 바탕으로 복기할 장면을 먼저 찾고, 필요한 경우 수동 입력으로 보완합니다.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
               {appMode === "debug" && <StatusBadge>Debug mode</StatusBadge>}
-              <StatusBadge>수동 MVP</StatusBadge>
-              <StatusBadge>자동화 Preview</StatusBadge>
-              <StatusBadge>영상 근거 준비 중</StatusBadge>
+              <StatusBadge>자동 복기 Preview</StatusBadge>
+              <StatusBadge>Riot 근거 기반</StatusBadge>
+              <StatusBadge>수동 입력은 보조</StatusBadge>
             </div>
           </div>
         </header>
+
+        {topSummary}
 
         {insight}
 
@@ -73,7 +76,7 @@ export default function CoachingDashboardLayout({
           <div className="space-y-4">
             <SectionTitle
               title="장면 분석 결과"
-              description="현재 입력한 장면에 대한 코칭 결과와 연결된 근거 메타데이터를 확인합니다."
+              description="직접 복기 입력으로 생성한 코칭 결과와 연결된 근거 메타데이터를 확인합니다."
             />
             {result}
           </div>

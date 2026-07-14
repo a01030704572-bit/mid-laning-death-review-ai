@@ -34,9 +34,9 @@ export default function ReviewInsightPanel({
   });
   const insightSourceLabel =
     insightSummary.source === "combined"
-      ? "수동 기록 + 자동화 샘플"
+      ? "최근 복기 + 자동화 샘플"
       : insightSummary.source === "manual_history"
-        ? "수동 기록 기반"
+        ? "최근 복기 기록 기반"
         : "자동화 샘플 기반";
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function ReviewInsightPanel({
   }, []);
 
   function handleResetHistory() {
-    if (!window.confirm("저장된 복기 장면 기록을 초기화할까요?")) return;
+    if (!window.confirm("저장된 복기 기록을 초기화할까요?")) return;
     if (clearReviewSceneHistory()) {
       setHabitAnalysis(analyzeHabitPatterns([]));
       window.dispatchEvent(new Event("review-history-updated"));
@@ -64,15 +64,15 @@ export default function ReviewInsightPanel({
     <section className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-zinc-950">오늘의 복기 인사이트</h2>
+          <h2 className="text-xl font-bold text-zinc-950">복기 인사이트</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            최근 복기 기록과 자동화 분석 샘플을 종합한 핵심 교정 후보입니다.
+            최근 복기 기록과 자동화 분석 샘플을 함께 보고, 반복될 수 있는 판단 습관을 정리합니다.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-            수동 복기 기록
+            최근 복기 기록
           </span>
           <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
             자동화 분석 샘플
@@ -87,7 +87,7 @@ export default function ReviewInsightPanel({
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)]">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-              이번에 가장 먼저 고칠 습관
+              먼저 확인할 반복 후보
             </p>
             <p className="mt-2 inline-flex rounded-full border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-500">
               {insightSourceLabel}
@@ -98,7 +98,7 @@ export default function ReviewInsightPanel({
 
             <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-3">
               <p className="text-xs font-semibold text-zinc-500">
-                왜 이게 먼저인가요?
+                왜 먼저 보나요?
               </p>
               <p className="mt-1 text-sm leading-6 text-zinc-700">
                 {insightSummary.whyThisFirstKo}
@@ -156,7 +156,7 @@ export default function ReviewInsightPanel({
           <div className="space-y-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">
-                수동 복기 기록 상세
+                최근 복기 기록 상세
               </h3>
               <p className="mt-1 text-sm text-zinc-500">
                 최근 입력한 복기 기록에서 반복되는 판단 습관을 요약합니다.
@@ -174,8 +174,7 @@ export default function ReviewInsightPanel({
                 자동화 패턴 후보 상세
               </h3>
               <p className="mt-1 text-sm text-zinc-500">
-                아래 카드는 경기 이벤트 기록 기반 자동화 엔진의 UI 확인용
-                샘플입니다.
+                아래 카드는 경기 이벤트 기록 기반 자동화 엔진의 UI 확인용 샘플입니다.
               </p>
             </div>
             <RepeatedPatternPreviewCard

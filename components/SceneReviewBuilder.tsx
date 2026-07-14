@@ -9,7 +9,6 @@ type SceneReviewBuilderProps = {
   manualForm: ReactNode;
   videoDraftPanel: ReactNode;
   riotEvidencePanel: ReactNode;
-  matchAnalysisDashboard?: ReactNode;
   sourceState: SceneReviewSourceState;
   canApplyVideoDraftPatch?: boolean;
   onApplyVideoDraftPatch?: () => void;
@@ -79,7 +78,7 @@ function EvidenceDetails({
             열기
           </span>
           <span className="hidden rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-500 group-open:inline">
-            닫기
+            접기
           </span>
         </div>
       </summary>
@@ -92,7 +91,6 @@ export default function SceneReviewBuilder({
   manualForm,
   videoDraftPanel,
   riotEvidencePanel,
-  matchAnalysisDashboard,
   sourceState,
   canApplyVideoDraftPatch = false,
   onApplyVideoDraftPatch,
@@ -103,29 +101,28 @@ export default function SceneReviewBuilder({
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-lg font-bold text-zinc-950">장면 복기 생성</h2>
+        <h2 className="text-lg font-bold text-zinc-950">이번 판 자동 복기</h2>
         <p className="mt-1 text-sm leading-6 text-zinc-500">
-          수동 입력을 기본으로, 영상 초안과 Riot 경기 기록을 보조 근거로
-          연결합니다.
+          Riot 매치를 연결하면 장면을 자동으로 찾아드립니다. 자동 후보가 부족할 때만 직접 입력하세요.
         </p>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
         <SourceCard
-          title="수동 입력"
-          description="최종 복기 기준"
-          status={sourceSummary.manualStatusKo}
+          title="Riot 경기 기록"
+          description="킬/데스/오브젝트 이벤트 기반"
+          status={sourceSummary.riotStatusKo}
           primary
         />
         <SourceCard
           title="영상 초안"
-          description="클립에서 입력값 후보 추출"
+          description="클립에서 보조 관찰 추출"
           status={sourceSummary.videoStatusKo}
         />
         <SourceCard
-          title="Riot 기록"
-          description="킬/데스/오브젝트 이벤트 근거"
-          status={sourceSummary.riotStatusKo}
+          title="직접 입력"
+          description="자동 후보가 부족할 때 보완"
+          status={sourceSummary.manualStatusKo}
         />
       </div>
 
@@ -133,7 +130,7 @@ export default function SceneReviewBuilder({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-semibold text-zinc-500">
-              현재 장면 소스 상태
+              현재 복기 소스 상태
             </p>
             <p className="mt-1 text-sm leading-6 text-zinc-800">
               {sourceSummary.overallStatusKo}
@@ -153,8 +150,7 @@ export default function SceneReviewBuilder({
           )}
         </div>
         <p className="mt-3 text-xs leading-5 text-zinc-500">
-          영상/Riot 결과는 최종 판단이 아니라 수동 복기 입력을 보조하는
-          근거입니다.
+          영상/Riot 결과는 최종 판단이 아니라 자동 후보와 직접 입력을 보조하는 근거입니다.
         </p>
         {sourceState.hasVideoDraft && !sourceState.isVideoDraftApplied && (
           <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3">
@@ -166,8 +162,7 @@ export default function SceneReviewBuilder({
             {canApplyVideoDraftPatch ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs leading-5 text-sky-800">
-                  영상 초안이 준비되었습니다. 적용 후에도 직접 수정할 수
-                  있습니다.
+                  영상 초안이 준비되었습니다. 적용 전에 직접 수정할 수 있습니다.
                 </p>
                 <button
                   type="button"
@@ -186,21 +181,19 @@ export default function SceneReviewBuilder({
         )}
       </div>
 
-      {matchAnalysisDashboard}
-
       {manualForm}
 
       <div className="space-y-3">
         <div>
           <h3 className="text-sm font-bold text-zinc-900">보조 근거 연결</h3>
           <p className="mt-1 text-xs leading-5 text-zinc-500">
-            필요할 때만 열어서 입력값 후보와 경기 이벤트 근거를 확인합니다.
+            필요할 때만 열어 영상 초안과 Riot 경기 기록 근거를 확인합니다.
           </p>
         </div>
 
         <EvidenceDetails
           title="영상으로 입력값 초안 만들기"
-          description="짧은 클립에서 복기 폼에 넣을 후보 입력값을 준비합니다."
+          description="짧은 클립에서 직접 입력에 넣을 후보 값을 준비합니다."
         >
           {videoDraftPanel}
         </EvidenceDetails>

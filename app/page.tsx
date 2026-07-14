@@ -81,6 +81,43 @@ function ManualReviewFallbackSection({
   );
 }
 
+function AutomaticReviewEmptyState() {
+  const badges = ["대표 장면", "유지할 좋은 판단", "다음에 체크할 후보"];
+
+  return (
+    <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+            Automatic Post-game Review
+          </p>
+          <h2 className="mt-2 text-xl font-bold text-zinc-950">
+            이번 판 자동 리뷰
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-600">
+            Riot 매치를 연결하면 킬/데스/오브젝트 이벤트를 바탕으로 먼저 볼 장면과 다음 판 목표를 정리합니다.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {badges.map((badge) => (
+            <span
+              key={badge}
+              className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-600"
+            >
+              {badge}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <p className="mt-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-3 text-sm leading-6 text-zinc-500">
+        아직 연결된 경기 기록이 없습니다. 아래 Riot 경기 기록 섹션에서 매치를 연결해보세요.
+      </p>
+    </section>
+  );
+}
+
 export default function Home() {
   const [reviewData, setReviewData] = useState<{
     riskTags: RiskTag[];
@@ -232,7 +269,7 @@ export default function Home() {
       <div>
         아직 코칭 리뷰 결과가 없습니다.
         <br />
-        왼쪽 입력 폼을 작성하고 Coaching Review를 생성해보세요.
+        직접 복기 입력을 열어 장면을 작성하거나, Riot 경기 기록을 연결해 자동 후보를 확인해보세요.
       </div>
     </div>
   );
@@ -256,6 +293,17 @@ export default function Home() {
         />
       </div>
     ) : null;
+  const reviewResultPanel = reviewData ? (
+    resultPanel
+  ) : (
+    <div className="flex min-h-96 items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-zinc-500 shadow-sm">
+      <div>
+        아직 직접 생성한 Coaching Review 결과가 없습니다.
+        <br />
+        직접 복기 입력을 열어 장면을 작성하거나, Riot 경기 기록을 연결해 자동 후보를 확인해보세요.
+      </div>
+    </div>
+  );
 
   return (
     <CoachingDashboardLayout
@@ -264,6 +312,7 @@ export default function Home() {
           repeatedPatternPreviewResults={repeatedPatternPreviewResults}
         />
       }
+      topSummary={matchAnalysisPanel ?? <AutomaticReviewEmptyState />}
       sceneBuilder={
         <SceneReviewBuilder
           manualForm={
@@ -294,7 +343,6 @@ export default function Home() {
               onMatchReviewRequested={loadMatchReview}
             />
           }
-          matchAnalysisDashboard={matchAnalysisPanel}
           sourceState={{
             hasManualInput: true,
             hasVideoDraft: Boolean(videoDraft),
@@ -307,7 +355,7 @@ export default function Home() {
           videoDraftApplyWarning={videoDraftApplyWarning}
         />
       }
-      result={resultPanel}
+      result={reviewResultPanel}
       appMode={appMode}
     />
   );

@@ -87,7 +87,7 @@ export default function MatchAnalysisDashboard({
             자동 복기 장면 후보
           </h2>
           <p className="mt-1 text-xs leading-5 text-zinc-500">
-            Riot 타임라인 기반으로 복기 가치가 높은 장면을 정렬했습니다.
+            Riot 타임라인 기반으로 이번 경기에서 먼저 볼 만한 장면을 정렬했습니다.
           </p>
         </div>
         <span className="w-fit rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-600">
@@ -105,17 +105,17 @@ export default function MatchAnalysisDashboard({
           title="대표 장면"
           description="이번 경기에서 가장 먼저 복기할 핵심 장면입니다."
           scenes={topScenes}
-          emptyText="분석된 장면이 없습니다."
+          emptyText="아직 분석된 대표 장면이 없습니다."
           selectedScene={selectedScene}
           sceneBundlesByRepresentative={sceneBundlesByRepresentative}
           showBundleSummary
           onSelectScene={onSelectScene}
         />
         <SceneSection
-          title="유지할 강점"
+          title="유지할 좋은 판단"
           description="다음 판에도 유지할 만한 좋은 판단 후보입니다."
           scenes={strengthScenes}
-          emptyText="강점 후보로 분리된 장면이 없습니다."
+          emptyText="아직 유지할 좋은 판단 후보가 분리되지 않았습니다."
           selectedScene={selectedScene}
           sceneBundlesByRepresentative={sceneBundlesByRepresentative}
           onSelectScene={onSelectScene}
@@ -124,7 +124,7 @@ export default function MatchAnalysisDashboard({
           title="다음에 체크할 후보"
           description="위험 판단, 놓친 전환, 반복 습관으로 이어질 수 있는 후보입니다."
           scenes={improvementScenes}
-          emptyText="다음에 체크할 후보로 분리된 장면이 없습니다."
+          emptyText="아직 다음에 체크할 후보가 분리되지 않았습니다."
           selectedScene={selectedScene}
           sceneBundlesByRepresentative={sceneBundlesByRepresentative}
           onSelectScene={onSelectScene}
