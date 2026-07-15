@@ -19,6 +19,9 @@ function loadTypeScriptModule(relativePath) {
 
   new Function("require", "module", "exports", output)(
     (moduleName) => {
+      if (moduleName === "@/lib/nextGameGoalSelector") {
+        return loadTypeScriptModule("lib/nextGameGoalSelector.ts");
+      }
       throw new Error(
         `Unexpected runtime dependency in coaching feedback draft mapper fixture: ${moduleName}`
       );
@@ -101,6 +104,7 @@ test("improvement scene creates improvementCandidate and nextGameGoal based on i
     "improvement-improve-1"
   );
   assert.deepEqual(feedback.nextGameGoal.basedOn.sceneIds, ["improve-1"]);
+  assert.ok(feedback.nextGameGoal.goalKo.includes("오브젝트 60초 전"));
 });
 
 test("strength scene creates CoachingStrength", () => {

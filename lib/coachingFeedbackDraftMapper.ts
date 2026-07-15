@@ -8,6 +8,7 @@ import type {
   ImprovementCategory,
   SceneCoachingReview,
 } from "@/types/coachingFeedback";
+import { selectNextGameGoal as selectSingleNextGameGoal } from "@/lib/nextGameGoalSelector";
 
 type CoachingFeedbackDraftInput = {
   matchId?: string;
@@ -446,47 +447,6 @@ function computeOverallConfidence(sceneReviews: SceneCoachingReview[]) {
   return "medium";
 }
 
-function selectNextGameGoal(
-  improvementCandidates: ImprovementCandidate[],
-  sceneReviews: SceneCoachingReview[]
-) {
-  const firstImprovement = improvementCandidates[0];
-  if (firstImprovement) {
-    return {
-      goalKo: firstImprovement.feedbackKo,
-      triggerKo: "비슷한 장면 조건이 다시 나올 때",
-      successConditionKo:
-        "판단 전에 확인할 조건을 하나 말로 정리하고 행동합니다.",
-      basedOn: {
-        sceneIds: firstImprovement.evidenceSceneIds,
-        improvementCandidateId: firstImprovement.id,
-      },
-    };
-  }
-
-  const firstScene = sceneReviews[0];
-  if (firstScene) {
-    return {
-      goalKo: firstScene.nextActionKo ?? firstScene.correctionKo,
-      triggerKo: "같은 유형의 장면이 다시 나올 때",
-      successConditionKo: "행동 전에 확인할 조건 하나를 먼저 체크합니다.",
-      basedOn: {
-        sceneIds: [firstScene.sceneId],
-      },
-    };
-  }
-
-  return {
-    goalKo: "다음 판에는 다시 봐야 할 장면 1개를 먼저 복기하세요.",
-    triggerKo: "게임이 끝난 직후",
-    successConditionKo:
-      "다시 볼 장면 1개를 고르고 확인 후보와 다음 행동을 하나로 정리합니다.",
-    basedOn: {
-      sceneIds: [],
-    },
-  };
-}
-
 function buildMatchSummary(
   sceneReviews: SceneCoachingReview[],
   confidence: EvidenceConfidence
@@ -530,10 +490,10 @@ export function buildCoachingFeedbackDraftFromScenes(
     strengths,
     improvementCandidates,
     recurringPatterns: [],
-    nextGameGoal: selectNextGameGoal(
+    nextGameGoal: selectSingleNextGameGoal({
       improvementCandidates,
-      candidateSceneReviews
-    ),
+      sceneReviews: candidateSceneReviews,
+    }),
     evidenceConfidence,
     personalization: {
       profileApplied: false,
