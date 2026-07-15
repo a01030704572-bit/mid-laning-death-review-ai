@@ -16,6 +16,7 @@ type ScoredCandidate = {
 
 const DEFAULT_CONFIRMED_WINDOW_MS = 10 * 60 * 1000;
 const DEFAULT_LIKELY_WINDOW_MS = 30 * 60 * 1000;
+const AMBIGUOUS_UNKNOWN_CONFIDENCE_CAP = 0.49;
 
 export function inferRiotMatchFromOverwolfPackage(
   overwolfPackage: OverwolfCapturePackage,
@@ -129,7 +130,11 @@ export function inferRiotMatchFromOverwolfPackage(
 
   return {
     status: "unknown",
-    confidenceScore: roundScore(best.score),
+    confidenceScore: roundScore(
+      closeCandidates.length > 1
+        ? Math.min(best.score, AMBIGUOUS_UNKNOWN_CONFIDENCE_CAP)
+        : best.score
+    ),
     reasonsKo: [
       "시간대가 가까운 후보는 있지만 단일 매치로 확정하기 어렵습니다.",
     ],

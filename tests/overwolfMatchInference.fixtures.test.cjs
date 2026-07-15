@@ -114,6 +114,12 @@ test("multiple close candidates returns unknown with ambiguity warning", () => {
 
   assert.equal(result.status, "unknown");
   assert.equal(result.matchId, undefined);
+  assert.ok(result.confidenceScore <= 0.49);
+  assert.ok(
+    result.reasonsKo.includes(
+      "시간대가 가까운 후보는 있지만 단일 매치로 확정하기 어렵습니다."
+    )
+  );
   assert.ok(result.warningsKo.some((warning) => warning.includes("여러 개")));
 });
 
