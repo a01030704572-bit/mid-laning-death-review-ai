@@ -45,6 +45,15 @@ const riotIdentityContextModule = loadTypeScriptModule(
 const matchSceneRankerModule = loadTypeScriptModule(
   "lib/riot/matchSceneRanker.ts"
 );
+const overwolfCaptureMapperModule = loadTypeScriptModule(
+  "lib/overwolfCaptureMapper.ts"
+);
+const overwolfSceneEvidenceAttacherModule = loadTypeScriptModule(
+  "lib/overwolfSceneEvidenceAttacher.ts",
+  {
+    "./overwolfCaptureMapper": overwolfCaptureMapperModule,
+  }
+);
 
 function participantFrame({
   participantId,
@@ -185,12 +194,52 @@ function loadRoute({ clientOverrides = {}, extractorOverrides = {} } = {}) {
     },
     "@/lib/riot/riotIdentityContext": riotIdentityContextModule,
     "@/lib/riot/matchSceneRanker": matchSceneRankerModule,
+    "@/lib/overwolfSceneEvidenceAttacher": overwolfSceneEvidenceAttacherModule,
   });
 }
 
 function getMatchReview(routeModule, query) {
   const url = `https://fixture.test/api/riot/match-review?${query}`;
   return routeModule.GET({ url });
+}
+
+function postMatchReview(routeModule, query, body) {
+  const url = `https://fixture.test/api/riot/match-review?${query}`;
+  return routeModule.POST({
+    url,
+    method: "POST",
+    json: async () => body,
+  });
+}
+
+function makeOverwolfPackage({ timeSec = 600, type = "kill" } = {}) {
+  return {
+    packageId: "ow-route-fixture",
+    source: "overwolf",
+    events: [
+      {
+        id: `ow-${type}-${timeSec}`,
+        type,
+        localTimestampMs: timeSec * 1000,
+        estimatedGameTimeSec: timeSec,
+        confidence: "high",
+        summaryKo: "Overwolf fixture event",
+        raw: { shouldNotLeak: true },
+      },
+    ],
+    clips: [
+      {
+        id: `clip-${type}-${timeSec}`,
+        triggerEventId: `ow-${type}-${timeSec}`,
+        filePathOrUrl: "file:///fixture/clip.mp4",
+        pastDurationMs: 15000,
+        futureDurationMs: 10000,
+        capturedAtLocalTimestampMs: timeSec * 1000 + 500,
+        status: "captured",
+      },
+    ],
+    collectedAtLocalTimestampMs: timeSec * 1000 + 1000,
+  };
 }
 
 test("missing matchId returns 400", async () => {
@@ -232,6 +281,81 @@ test("successful fixture returns report with topScenes array", async () => {
   assert.equal(response.body.report.gameDurationSec, 1800);
   assert.ok(Array.isArray(response.body.report.topScenes));
   assert.ok(response.body.report.topScenes.length > 0);
+  assert.equal("videoEvidence" in response.body.report.topScenes[0], false);
+});
+
+test("successful fixture with Overwolf package returns compact video evidence", async () => {
+  const response = await postMatchReview(
+    loadRoute(),
+    new URLSearchParams({
+      matchId: "KR_1",
+      puuid: "player-puuid",
+      regionalRoute: "asia",
+    }).toString(),
+    { overwolfCapturePackage: makeOverwolfPackage({ timeSec: 600, type: "kill" }) }
+  );
+
+  assert.equal(response.status, 200);
+  const attachedScene = response.body.report.topScenes.find(
+    (scene) => scene.videoEvidenceStatus === "attached"
+  );
+
+  assert.ok(attachedScene);
+  assert.equal(attachedScene.videoEvidence.alignment.status, "aligned");
+  assert.equal(attachedScene.videoEvidence.alignment.confidence, "confirmed");
+  assert.equal(
+    "raw" in attachedScene.videoEvidence.sourceEvent,
+    false
+  );
+});
+
+test("misaligned Overwolf event does not attach as confirmed", async () => {
+  const response = await postMatchReview(
+    loadRoute(),
+    new URLSearchParams({
+      matchId: "KR_1",
+      puuid: "player-puuid",
+    }).toString(),
+    { overwolfCapturePackage: makeOverwolfPackage({ timeSec: 900, type: "kill" }) }
+  );
+
+  assert.equal(response.status, 200);
+  assert.ok(
+    response.body.report.topScenes.every(
+      (scene) =>
+        scene.videoEvidenceStatus !== "attached" ||
+        scene.videoEvidence?.alignment.confidence !== "confirmed"
+    )
+  );
+});
+
+test("malformed Overwolf package does not crash and returns Riot-only report", async () => {
+  const response = await postMatchReview(
+    loadRoute(),
+    new URLSearchParams({
+      matchId: "KR_1",
+      puuid: "player-puuid",
+    }).toString(),
+    { overwolfCapturePackage: { source: "overwolf", events: "bad" } }
+  );
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.report.topScenes.length > 0);
+  assert.equal("videoEvidence" in response.body.report.topScenes[0], false);
+});
+
+test("response does not include raw Overwolf payload", async () => {
+  const response = await postMatchReview(
+    loadRoute(),
+    new URLSearchParams({
+      matchId: "KR_1",
+      puuid: "player-puuid",
+    }).toString(),
+    { overwolfCapturePackage: makeOverwolfPackage({ timeSec: 600, type: "kill" }) }
+  );
+
+  assert.equal(response.status, 200);
+  assert.doesNotMatch(JSON.stringify(response.body), /shouldNotLeak/);
 });
 
 test("extractor failure returns partial report instead of 500", async () => {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { attachOverwolfEvidenceToRankedScenes } from "@/lib/overwolfSceneEvidenceAttacher";
 import { extractAutoSceneCandidates } from "@/lib/riot/autoSceneExtractor";
 import {
   getMatchDetail,
@@ -11,6 +12,8 @@ import {
 import { buildRiotIdentityContext } from "@/lib/riot/riotIdentityContext";
 import { rankMatchScenes } from "@/lib/riot/matchSceneRanker";
 import type { AutoSceneCandidate } from "@/types/autoScene";
+import type { MatchReviewReport, RankedReviewScene } from "@/types/matchReview";
+import type { OverwolfCapturePackage } from "@/types/overwolfCapture";
 import type {
   RiotMatchDetail,
   RiotMatchTimeline,
@@ -44,6 +47,41 @@ function normalizeMatchReviewRequest(searchParams: URLSearchParams) {
     puuid,
     regionalRoute: normalizeRegionalRoute(searchParams.get("regionalRoute")),
   };
+}
+
+async function readOptionalMatchReviewBody(request: Request) {
+  if (request.method !== "POST") return null;
+
+  try {
+    return (await request.json()) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function extractOptionalOverwolfCapturePackage(
+  body: unknown
+): OverwolfCapturePackage | null {
+  if (!body || typeof body !== "object") return null;
+  const overwolfCapturePackage = (body as Record<string, unknown>)
+    .overwolfCapturePackage;
+
+  if (!overwolfCapturePackage || typeof overwolfCapturePackage !== "object") {
+    return null;
+  }
+
+  const record = overwolfCapturePackage as Partial<OverwolfCapturePackage>;
+  if (
+    record.source !== "overwolf" ||
+    typeof record.packageId !== "string" ||
+    !Array.isArray(record.events) ||
+    !Array.isArray(record.clips) ||
+    typeof record.collectedAtLocalTimestampMs !== "number"
+  ) {
+    return null;
+  }
+
+  return record as OverwolfCapturePackage;
 }
 
 function riotMatchReviewErrorMessage(status: number) {
@@ -108,10 +146,43 @@ function extractAutoSceneCandidatesSafely({
   }
 }
 
-export async function GET(request: Request) {
+function attachOverwolfEvidenceSafely(
+  report: MatchReviewReport,
+  overwolfCapturePackage: OverwolfCapturePackage | null
+) {
+  if (!overwolfCapturePackage) return report;
+
+  try {
+    const attachScenes = (scenes: RankedReviewScene[]) =>
+      attachOverwolfEvidenceToRankedScenes(scenes, overwolfCapturePackage);
+
+    return {
+      ...report,
+      rankedScenes: attachScenes(report.rankedScenes),
+      improvementScenes: attachScenes(report.improvementScenes),
+      strengthScenes: attachScenes(report.strengthScenes),
+      topScenes: attachScenes(report.topScenes),
+      sceneBundles: report.sceneBundles?.map((bundle) => ({
+        ...bundle,
+        representative: attachScenes([bundle.representative])[0],
+        nearby: attachScenes(bundle.nearby),
+      })),
+    };
+  } catch (error) {
+    console.warn("Overwolf evidence attachment failed.", {
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+    return report;
+  }
+}
+
+async function handleMatchReview(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const reviewRequest = normalizeMatchReviewRequest(searchParams);
+    const requestBody = await readOptionalMatchReviewBody(request);
+    const overwolfCapturePackage =
+      extractOptionalOverwolfCapturePackage(requestBody);
     const apiKey = requireRiotApiKey();
     const match = await getMatchDetail({
       matchId: reviewRequest.matchId,
@@ -148,8 +219,12 @@ export async function GET(request: Request) {
       puuid: reviewRequest.puuid,
       gameDurationSec: match.info.gameDuration,
     });
+    const responseReport = attachOverwolfEvidenceSafely(
+      report,
+      overwolfCapturePackage
+    );
 
-    return NextResponse.json({ report });
+    return NextResponse.json({ report: responseReport });
   } catch (error) {
     if (error instanceof MatchReviewValidationError) {
       return NextResponse.json(
@@ -182,4 +257,12 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(request: Request) {
+  return handleMatchReview(request);
+}
+
+export async function POST(request: Request) {
+  return handleMatchReview(request);
 }
