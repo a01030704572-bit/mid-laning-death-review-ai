@@ -27,6 +27,14 @@ After Overwolf developer access is available:
 3. Choose Load unpacked.
 4. Select this `overwolf-collector` folder.
 
+## Manual QA with the web app debug importer
+
+1. Open the web app with `?debug=true`.
+2. Find the Overwolf Capture Debug Importer.
+3. Copy `overwolf-collector/samples/sample-capture-package.json`.
+4. Paste it into the importer.
+5. Expected result: `safe true`, session status `validated`, and no validation issues.
+
 ## Safety notes
 
 - Do not provide real-time coaching or live strategic recommendations.

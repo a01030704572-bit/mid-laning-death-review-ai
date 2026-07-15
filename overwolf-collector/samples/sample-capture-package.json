@@ -1,0 +1,57 @@
+{
+  "packageId": "ow-sample-2026-07-15-kr-001",
+  "source": "overwolf",
+  "matchIdGuess": "KR_SAMPLE_001",
+  "puuidGuess": "sample-player-puuid",
+  "gameNameGuess": "MidReviewer",
+  "tagLineGuess": "KR1",
+  "clientVersion": "overwolf-skeleton-0.0.1",
+  "events": [
+    {
+      "id": "event-death-001",
+      "type": "death",
+      "localTimestampMs": 1721030400000,
+      "estimatedGameTimeSec": 548,
+      "confidence": "high",
+      "rawEventName": "death",
+      "summaryKo": "미드 주변 교전에서 사망한 후보 이벤트입니다."
+    },
+    {
+      "id": "event-kill-001",
+      "type": "kill",
+      "localTimestampMs": 1721030600000,
+      "estimatedGameTimeSec": 748,
+      "confidence": "medium",
+      "rawEventName": "kill",
+      "summaryKo": "플레이어 관여 킬 후보 이벤트입니다."
+    },
+    {
+      "id": "event-objective-001",
+      "type": "objective",
+      "localTimestampMs": 1721030780000,
+      "estimatedGameTimeSec": 928,
+      "confidence": "medium",
+      "rawEventName": "objective",
+      "summaryKo": "오브젝트 전후 확인이 필요한 후보 이벤트입니다."
+    }
+  ],
+  "clips": [
+    {
+      "id": "clip-death-001",
+      "triggerEventId": "event-death-001",
+      "pastDurationMs": 15000,
+      "futureDurationMs": 10000,
+      "capturedAtLocalTimestampMs": 1721030400000,
+      "status": "captured"
+    },
+    {
+      "id": "clip-kill-001",
+      "triggerEventId": "event-kill-001",
+      "pastDurationMs": 12000,
+      "futureDurationMs": 8000,
+      "capturedAtLocalTimestampMs": 1721030600000,
+      "status": "capture_partial"
+    }
+  ],
+  "collectedAtLocalTimestampMs": 1721030900000
+}
