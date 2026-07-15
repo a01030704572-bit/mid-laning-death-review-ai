@@ -5,6 +5,7 @@ import CoachingDashboardLayout from "@/components/CoachingDashboardLayout";
 import DeathReviewForm from "@/components/DeathReviewForm";
 import EvidenceMetadataPreview from "@/components/EvidenceMetadataPreview";
 import MatchAnalysisDashboard from "@/components/MatchAnalysisDashboard";
+import OverwolfCaptureDebugImporter from "@/components/OverwolfCaptureDebugImporter";
 import ReviewInsightPanel from "@/components/ReviewInsightPanel";
 import ReviewResultCard from "@/components/ReviewResultCard";
 import RiotEvidencePanel from "@/components/RiotEvidencePanel";
@@ -445,41 +446,44 @@ export default function Home() {
       {riotEvidencePanel}
     </MatchReconnectSection>
   ) : (
-    <SceneReviewBuilder
-      manualForm={
-        <ManualReviewFallbackSection appMode={appMode}>
-          <DeathReviewForm
-            onResult={handleReviewResult}
-            videoDraft={videoDraft}
-            isVideoDraftApplied={isVideoDraftApplied}
-            videoDraftPatch={videoDraftPatch}
-            videoDraftPatchVersion={videoDraftPatchVersion}
-            onCoreSceneInputChange={setHasExistingCoreSceneInput}
-            riotEvidence={riotEvidence}
+    <div className="space-y-4">
+      <SceneReviewBuilder
+        manualForm={
+          <ManualReviewFallbackSection appMode={appMode}>
+            <DeathReviewForm
+              onResult={handleReviewResult}
+              videoDraft={videoDraft}
+              isVideoDraftApplied={isVideoDraftApplied}
+              videoDraftPatch={videoDraftPatch}
+              videoDraftPatchVersion={videoDraftPatchVersion}
+              onCoreSceneInputChange={setHasExistingCoreSceneInput}
+              riotEvidence={riotEvidence}
+            />
+          </ManualReviewFallbackSection>
+        }
+        videoDraftPanel={
+          <VideoDraftPanel
+            onDraftChange={handleVideoDraftChange}
+            embedded
+            lockedRiotContext={lockedRiotVideoContext}
           />
-        </ManualReviewFallbackSection>
-      }
-      videoDraftPanel={
-        <VideoDraftPanel
-          onDraftChange={handleVideoDraftChange}
-          embedded
-          lockedRiotContext={lockedRiotVideoContext}
-        />
-      }
-      riotEvidencePanel={riotEvidencePanel}
-      sourceState={{
-        hasManualInput: true,
-        hasVideoDraft: Boolean(videoDraft),
-        isVideoDraftApplied,
-        hasRiotEvidence: Boolean(riotEvidence),
-        isRiotEvidenceConnected: Boolean(riotEvidence),
-      }}
-      appMode={appMode}
-      hasAutomaticMatchReport={hasAutomaticMatchReport}
-      canApplyVideoDraftPatch={canApplyVideoDraftPatch}
-      onApplyVideoDraftPatch={handleApplyVideoDraftPatch}
-      videoDraftApplyWarning={videoDraftApplyWarning}
-    />
+        }
+        riotEvidencePanel={riotEvidencePanel}
+        sourceState={{
+          hasManualInput: true,
+          hasVideoDraft: Boolean(videoDraft),
+          isVideoDraftApplied,
+          hasRiotEvidence: Boolean(riotEvidence),
+          isRiotEvidenceConnected: Boolean(riotEvidence),
+        }}
+        appMode={appMode}
+        hasAutomaticMatchReport={hasAutomaticMatchReport}
+        canApplyVideoDraftPatch={canApplyVideoDraftPatch}
+        onApplyVideoDraftPatch={handleApplyVideoDraftPatch}
+        videoDraftApplyWarning={videoDraftApplyWarning}
+      />
+      <OverwolfCaptureDebugImporter />
+    </div>
   );
 
   return (
