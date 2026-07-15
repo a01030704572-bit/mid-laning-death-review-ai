@@ -6,6 +6,7 @@ import DeathReviewForm from "@/components/DeathReviewForm";
 import EvidenceMetadataPreview from "@/components/EvidenceMetadataPreview";
 import MatchAnalysisDashboard from "@/components/MatchAnalysisDashboard";
 import OverwolfCaptureDebugImporter from "@/components/OverwolfCaptureDebugImporter";
+import RecentReviewFlowPreview from "@/components/RecentReviewFlowPreview";
 import ReviewInsightPanel from "@/components/ReviewInsightPanel";
 import ReviewResultCard from "@/components/ReviewResultCard";
 import RiotEvidencePanel from "@/components/RiotEvidencePanel";
@@ -485,6 +486,14 @@ export default function Home() {
       <OverwolfCaptureDebugImporter />
     </div>
   );
+  const topSummaryPanel = isUserMode ? (
+    <div className="space-y-4">
+      <RecentReviewFlowPreview />
+      {matchAnalysisPanel ?? <AutomaticReviewStartCta />}
+    </div>
+  ) : (
+    matchAnalysisPanel ?? <AutomaticReviewStartCta />
+  );
 
   return (
     <CoachingDashboardLayout
@@ -495,7 +504,7 @@ export default function Home() {
           />
         )
       }
-      topSummary={matchAnalysisPanel ?? <AutomaticReviewStartCta />}
+      topSummary={topSummaryPanel}
       sceneBuilder={sceneBuilderPanel}
       result={reviewResultPanel}
       appMode={appMode}
