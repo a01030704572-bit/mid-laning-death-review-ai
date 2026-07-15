@@ -1,0 +1,24 @@
+{
+  "manifest_version": 1,
+  "type": "WebApp",
+  "meta": {
+    "name": "Mid Lane Review Companion",
+    "version": "0.0.1",
+    "minimum-overwolf-version": "0.265.0",
+    "author": "AI Game Coaching Automation Lab"
+  },
+  "data": {
+    "start_window": "background",
+    "windows": {
+      "background": {
+        "file": "src/background.html",
+        "is_background_page": true
+      }
+    },
+    "game_targeting": {
+      "type": "dedicated",
+      "game_ids": [5426]
+    },
+    "permissions": ["GameInfo", "GameEvents", "Media"]
+  }
+}
