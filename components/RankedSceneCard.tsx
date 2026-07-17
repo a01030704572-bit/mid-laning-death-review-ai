@@ -1,4 +1,11 @@
 import type { AppMode } from "@/lib/appMode";
+import {
+  getDebugSceneValenceLabelKo,
+  getUserFacingSceneBadge,
+  getUserFacingSceneDescription,
+  getUserFacingSceneTitle,
+  getUserFacingVerificationText,
+} from "@/lib/sceneCardCopy";
 import type {
   RankedReviewScene,
   SceneBundle,
@@ -93,6 +100,7 @@ export default function RankedSceneCard({
   const shouldShowBundleSummary =
     isDebugMode && showBundleSummary && sceneBundle && nearbyScenes.length > 0;
   const firstConfirmationQuestion = scene.confirmationQuestions[0];
+  const userVerificationText = getUserFacingVerificationText(scene);
 
   return (
     <button
@@ -113,16 +121,23 @@ export default function RankedSceneCard({
               : ""}
           </p>
           <h3 className="mt-1 text-sm font-bold text-zinc-950">
-            {scene.displayNameKo}
+            {isDebugMode ? scene.displayNameKo : getUserFacingSceneTitle(scene)}
           </h3>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold text-zinc-600">
-            {sceneValenceLabelKo(scene.sceneValence)}
+            {isDebugMode
+              ? getDebugSceneValenceLabelKo(scene.sceneValence)
+              : getUserFacingSceneBadge(scene)}
           </span>
-          {scene.confirmationQuestions.length > 0 && (
+          {scene.confirmationQuestions.length > 0 && isDebugMode && (
             <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
               확인 필요
+            </span>
+          )}
+          {scene.confirmationQuestions.length > 0 && !isDebugMode && (
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+              {userVerificationText}
             </span>
           )}
         </div>
@@ -146,11 +161,14 @@ export default function RankedSceneCard({
       ) : (
         <div className="mt-3 space-y-2">
           <p className="text-xs leading-5 text-zinc-600">
-            {getUserReason(scene)}
+            {getUserFacingSceneDescription(scene)}
           </p>
           {firstConfirmationQuestion && (
             <p className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
               <span className="font-semibold">확인할 것: </span>
+              <span className="hidden">
+              <span className="font-semibold">확인할 것: </span>
+              </span>
               {firstConfirmationQuestion.questionKo}
             </p>
           )}
