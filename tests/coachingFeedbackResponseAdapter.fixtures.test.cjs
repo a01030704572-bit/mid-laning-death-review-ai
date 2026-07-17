@@ -31,6 +31,9 @@ function loadTypeScriptModule(relativePath, cache = new Map()) {
           "lib/coachingFeedbackQualityGate.ts",
         "@/lib/coachingFeedbackGuards": "lib/coachingFeedbackGuards.ts",
         "@/lib/nextGameGoalSelector": "lib/nextGameGoalSelector.ts",
+        "@/lib/feedbackJudgeAdapter": "lib/feedbackJudgeAdapter.ts",
+        "@/lib/feedbackJudgeGuards": "lib/feedbackJudgeGuards.ts",
+        "@/lib/feedbackJudgePrompt": "lib/feedbackJudgePrompt.ts",
       };
       if (aliases[moduleName]) {
         return loadTypeScriptModule(aliases[moduleName], cache);
@@ -76,6 +79,33 @@ function makeReport(overrides = {}) {
   };
 }
 
+function makeFeedback(overrides = {}) {
+  return {
+    matchId: "KR_1",
+    puuid: "player-puuid",
+    generatedAtIsoTimestamp: "2026-07-17T00:00:00.000Z",
+    matchSummary: {
+      titleKo: "이번 판 코칭 요약",
+      summaryKo: "상대 정글 위치가 보이지 않을 때 압박 범위를 줄이는 후보입니다.",
+      overallHypothesisKo: "근거 기반 복기 후보입니다.",
+      confidence: "medium",
+    },
+    sceneReviews: [],
+    strengths: [],
+    improvementCandidates: [],
+    recurringPatterns: [],
+    nextGameGoal: {
+      goalKo:
+        "상대 정글 위치가 보이지 않으면 압박 전에 와드를 확인하고, 5초 안에 라인 정리 또는 후퇴를 선택하세요.",
+      triggerKo: "상대 정글 위치가 보이지 않으면",
+      successConditionKo: "5초 안에 라인 정리 또는 후퇴 중 하나를 선택합니다.",
+      basedOn: { sceneIds: [] },
+    },
+    evidenceConfidence: "medium",
+    ...overrides,
+  };
+}
+
 test("builds coachingFeedbackPreview from match review scene data", () => {
   const result = buildCoachingFeedbackPreviewForMatchReview({
     report: makeReport(),
@@ -92,6 +122,12 @@ test("builds coachingFeedbackPreview from match review scene data", () => {
     hasExactlyOneNextGameGoal(result.coachingFeedbackPreview.feedback),
     true
   );
+  assert.ok(result.feedbackJudgePreview);
+  assert.equal(typeof result.feedbackJudgePreview.verdict, "string");
+  assert.equal(typeof result.feedbackJudgePreview.qualityScore, "number");
+  assert.ok(Array.isArray(result.feedbackJudgePreview.issues));
+  assert.equal(typeof result.feedbackJudgePreview.shouldShowToUser, "boolean");
+  assert.deepEqual(result.feedbackJudgePreviewWarnings, []);
 });
 
 test("empty scenes still return fallback coachingFeedbackPreview", () => {
@@ -115,6 +151,51 @@ test("empty scenes still return fallback coachingFeedbackPreview", () => {
     hasExactlyOneNextGameGoal(result.coachingFeedbackPreview.feedback),
     true
   );
+  assert.ok(result.feedbackJudgePreview);
+});
+
+test("internal label in feedback causes feedbackJudgePreview verdict not pass", () => {
+  const result = buildCoachingFeedbackPreviewForMatchReview(
+    { report: makeReport() },
+    () => ({
+      feedback: makeFeedback({
+        matchSummary: {
+          ...makeFeedback().matchSummary,
+          summaryKo: "jungle_tracking 기준으로 먼저 볼 장면입니다.",
+        },
+      }),
+      warnings: [],
+      changed: false,
+    })
+  );
+
+  assert.ok(result.feedbackJudgePreview);
+  assert.notEqual(result.feedbackJudgePreview.verdict, "pass");
+  assert.ok(
+    result.feedbackJudgePreview.issues.some(
+      (issue) => issue.type === "internal_label"
+    )
+  );
+});
+
+test("judge failure returns warning without breaking coachingFeedbackPreview", () => {
+  const result = buildCoachingFeedbackPreviewForMatchReview(
+    { report: makeReport() },
+    () => ({
+      feedback: makeFeedback(),
+      warnings: [],
+      changed: false,
+    }),
+    () => {
+      throw new Error("fixture judge failure");
+    }
+  );
+
+  assert.ok(result.coachingFeedbackPreview);
+  assert.equal(result.feedbackJudgePreview, null);
+  assert.deepEqual(result.feedbackJudgePreviewWarnings, [
+    "Feedback judge preview could not be generated.",
+  ]);
 });
 
 test("pipeline failure returns null preview and warning without throwing", () => {
@@ -129,6 +210,8 @@ test("pipeline failure returns null preview and warning without throwing", () =>
   assert.deepEqual(result.coachingFeedbackPreviewWarnings, [
     "Coaching feedback preview could not be generated.",
   ]);
+  assert.equal(result.feedbackJudgePreview, null);
+  assert.deepEqual(result.feedbackJudgePreviewWarnings, []);
 });
 
 test("input report is not mutated", () => {

@@ -80,10 +80,27 @@ const coachingFeedbackPipelineModule = loadTypeScriptModule(
     "@/lib/coachingFeedbackQualityGate": coachingFeedbackQualityGateModule,
   }
 );
+const feedbackJudgePromptModule = loadTypeScriptModule(
+  "lib/feedbackJudgePrompt.ts"
+);
+const feedbackJudgeGuardsModule = loadTypeScriptModule(
+  "lib/feedbackJudgeGuards.ts",
+  {
+    "@/lib/feedbackJudgePrompt": feedbackJudgePromptModule,
+  }
+);
+const feedbackJudgeAdapterModule = loadTypeScriptModule(
+  "lib/feedbackJudgeAdapter.ts",
+  {
+    "@/lib/feedbackJudgePrompt": feedbackJudgePromptModule,
+    "@/lib/feedbackJudgeGuards": feedbackJudgeGuardsModule,
+  }
+);
 const coachingFeedbackResponseAdapterModule = loadTypeScriptModule(
   "lib/coachingFeedbackResponseAdapter.ts",
   {
     "@/lib/coachingFeedbackPipeline": coachingFeedbackPipelineModule,
+    "@/lib/feedbackJudgeAdapter": feedbackJudgeAdapterModule,
   }
 );
 
@@ -331,6 +348,15 @@ test("successful fixture returns report with topScenes array", async () => {
     false
   );
   assert.deepEqual(response.body.coachingFeedbackPreviewWarnings, []);
+  assert.ok(response.body.feedbackJudgePreview);
+  assert.equal(typeof response.body.feedbackJudgePreview.verdict, "string");
+  assert.equal(typeof response.body.feedbackJudgePreview.qualityScore, "number");
+  assert.ok(Array.isArray(response.body.feedbackJudgePreview.issues));
+  assert.equal(
+    typeof response.body.feedbackJudgePreview.shouldShowToUser,
+    "boolean"
+  );
+  assert.deepEqual(response.body.feedbackJudgePreviewWarnings, []);
 });
 
 test("successful fixture with Overwolf package returns compact video evidence", async () => {
