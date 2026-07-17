@@ -54,6 +54,38 @@ const overwolfSceneEvidenceAttacherModule = loadTypeScriptModule(
     "./overwolfCaptureMapper": overwolfCaptureMapperModule,
   }
 );
+const coachingFeedbackGuardsModule = loadTypeScriptModule(
+  "lib/coachingFeedbackGuards.ts"
+);
+const nextGameGoalSelectorModule = loadTypeScriptModule(
+  "lib/nextGameGoalSelector.ts"
+);
+const coachingFeedbackDraftMapperModule = loadTypeScriptModule(
+  "lib/coachingFeedbackDraftMapper.ts",
+  {
+    "@/lib/nextGameGoalSelector": nextGameGoalSelectorModule,
+  }
+);
+const coachingFeedbackQualityGateModule = loadTypeScriptModule(
+  "lib/coachingFeedbackQualityGate.ts",
+  {
+    "@/lib/coachingFeedbackGuards": coachingFeedbackGuardsModule,
+    "@/lib/nextGameGoalSelector": nextGameGoalSelectorModule,
+  }
+);
+const coachingFeedbackPipelineModule = loadTypeScriptModule(
+  "lib/coachingFeedbackPipeline.ts",
+  {
+    "@/lib/coachingFeedbackDraftMapper": coachingFeedbackDraftMapperModule,
+    "@/lib/coachingFeedbackQualityGate": coachingFeedbackQualityGateModule,
+  }
+);
+const coachingFeedbackResponseAdapterModule = loadTypeScriptModule(
+  "lib/coachingFeedbackResponseAdapter.ts",
+  {
+    "@/lib/coachingFeedbackPipeline": coachingFeedbackPipelineModule,
+  }
+);
 
 function participantFrame({
   participantId,
@@ -195,6 +227,8 @@ function loadRoute({ clientOverrides = {}, extractorOverrides = {} } = {}) {
     "@/lib/riot/riotIdentityContext": riotIdentityContextModule,
     "@/lib/riot/matchSceneRanker": matchSceneRankerModule,
     "@/lib/overwolfSceneEvidenceAttacher": overwolfSceneEvidenceAttacherModule,
+    "@/lib/coachingFeedbackResponseAdapter":
+      coachingFeedbackResponseAdapterModule,
   });
 }
 
@@ -282,6 +316,21 @@ test("successful fixture returns report with topScenes array", async () => {
   assert.ok(Array.isArray(response.body.report.topScenes));
   assert.ok(response.body.report.topScenes.length > 0);
   assert.equal("videoEvidence" in response.body.report.topScenes[0], false);
+  assert.ok(response.body.coachingFeedbackPreview);
+  assert.equal(
+    response.body.coachingFeedbackPreview.feedback.matchId,
+    "KR_1"
+  );
+  assert.equal(
+    response.body.coachingFeedbackPreview.feedback.puuid,
+    "player-puuid"
+  );
+  assert.ok(response.body.coachingFeedbackPreview.feedback.nextGameGoal.goalKo);
+  assert.equal(
+    Array.isArray(response.body.coachingFeedbackPreview.feedback.nextGameGoal),
+    false
+  );
+  assert.deepEqual(response.body.coachingFeedbackPreviewWarnings, []);
 });
 
 test("successful fixture with Overwolf package returns compact video evidence", async () => {
@@ -376,6 +425,12 @@ test("extractor failure returns partial report instead of 500", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.body.report.analysisStatus, "partial");
   assert.deepEqual(response.body.report.topScenes, []);
+  assert.ok(response.body.coachingFeedbackPreview);
+  assert.equal(
+    response.body.coachingFeedbackPreview.feedback.sceneReviews.length,
+    0
+  );
+  assert.ok(response.body.coachingFeedbackPreview.feedback.nextGameGoal.goalKo);
 });
 
 test("missing RIOT_API_KEY returns clear 500", async () => {

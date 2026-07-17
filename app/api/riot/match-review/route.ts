@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildCoachingFeedbackPreviewForMatchReview } from "@/lib/coachingFeedbackResponseAdapter";
 import { attachOverwolfEvidenceToRankedScenes } from "@/lib/overwolfSceneEvidenceAttacher";
 import { extractAutoSceneCandidates } from "@/lib/riot/autoSceneExtractor";
 import {
@@ -223,8 +224,16 @@ async function handleMatchReview(request: Request) {
       report,
       overwolfCapturePackage
     );
+    const coachingFeedbackPreview =
+      buildCoachingFeedbackPreviewForMatchReview({
+        report: responseReport,
+        generatedAtIsoTimestamp: responseReport.generatedAt,
+      });
 
-    return NextResponse.json({ report: responseReport });
+    return NextResponse.json({
+      report: responseReport,
+      ...coachingFeedbackPreview,
+    });
   } catch (error) {
     if (error instanceof MatchReviewValidationError) {
       return NextResponse.json(
