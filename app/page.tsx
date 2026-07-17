@@ -16,6 +16,10 @@ import { ReviewResult, RiskTag, ScenarioType } from "@/types/review";
 import type { ReviewSceneCompletion } from "@/types/history";
 import type { ReviewEvidenceMetadata } from "@/types/evidence";
 import type { CoachingFeedback } from "@/types/coachingFeedback";
+import type {
+  FeedbackJudgeIssue,
+  FeedbackJudgeSafeRewrite,
+} from "@/types/feedbackJudge";
 import type { MatchReviewReport, RankedReviewScene } from "@/types/matchReview";
 import type { RiotTimelineEvidence } from "@/types/riot";
 import type { LockedRiotVideoContext, VideoReviewDraft } from "@/types/videoDraft";
@@ -48,6 +52,14 @@ type MatchReviewResponse = {
     changed: boolean;
   } | null;
   coachingFeedbackPreviewWarnings?: string[];
+  feedbackJudgePreview?: {
+    verdict: "pass" | "revise" | "reject";
+    qualityScore: number;
+    issues: FeedbackJudgeIssue[];
+    shouldShowToUser: boolean;
+  } | null;
+  feedbackJudgePreviewWarnings?: string[];
+  feedbackJudgeSafeRewrite?: FeedbackJudgeSafeRewrite;
   error?: string;
 };
 
@@ -258,6 +270,13 @@ export default function Home() {
     useState<CoachingFeedback | null>(null);
   const [coachingFeedbackPreviewWarnings, setCoachingFeedbackPreviewWarnings] =
     useState<string[]>([]);
+  const [feedbackJudgePreview, setFeedbackJudgePreview] = useState<
+    MatchReviewResponse["feedbackJudgePreview"]
+  >(null);
+  const [feedbackJudgePreviewWarnings, setFeedbackJudgePreviewWarnings] =
+    useState<string[]>([]);
+  const [feedbackJudgeSafeRewrite, setFeedbackJudgeSafeRewrite] =
+    useState<FeedbackJudgeSafeRewrite | undefined>(undefined);
   const [selectedScene, setSelectedScene] =
     useState<RankedReviewScene | null>(null);
   const [matchReviewError, setMatchReviewError] = useState<string | null>(null);
@@ -330,6 +349,9 @@ export default function Home() {
       setMatchReviewReport(null);
       setCoachingFeedbackPreview(null);
       setCoachingFeedbackPreviewWarnings([]);
+      setFeedbackJudgePreview(null);
+      setFeedbackJudgePreviewWarnings([]);
+      setFeedbackJudgeSafeRewrite(undefined);
       setSelectedScene(null);
       setMatchReviewError(null);
     }
@@ -341,6 +363,9 @@ export default function Home() {
     setMatchReviewReport(null);
     setCoachingFeedbackPreview(null);
     setCoachingFeedbackPreviewWarnings([]);
+    setFeedbackJudgePreview(null);
+    setFeedbackJudgePreviewWarnings([]);
+    setFeedbackJudgeSafeRewrite(undefined);
     setSelectedScene(null);
 
     try {
@@ -368,6 +393,9 @@ export default function Home() {
         ...(data.coachingFeedbackPreview?.warnings ?? []),
         ...(data.coachingFeedbackPreviewWarnings ?? []),
       ]);
+      setFeedbackJudgePreview(data.feedbackJudgePreview ?? null);
+      setFeedbackJudgePreviewWarnings(data.feedbackJudgePreviewWarnings ?? []);
+      setFeedbackJudgeSafeRewrite(data.feedbackJudgeSafeRewrite);
       setSelectedScene(data.report.topScenes[0] ?? null);
     } catch (requestError) {
       setMatchReviewError(
@@ -443,6 +471,9 @@ export default function Home() {
           selectedScene={selectedScene}
           coachingFeedbackPreview={coachingFeedbackPreview}
           coachingFeedbackPreviewWarnings={coachingFeedbackPreviewWarnings}
+          feedbackJudgePreview={feedbackJudgePreview}
+          feedbackJudgePreviewWarnings={feedbackJudgePreviewWarnings}
+          feedbackJudgeSafeRewrite={feedbackJudgeSafeRewrite}
           onSelectScene={setSelectedScene}
           appMode={appMode}
         />

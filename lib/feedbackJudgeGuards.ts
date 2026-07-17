@@ -88,6 +88,24 @@ export function hasActionableNextGameGoal(text: string): boolean {
   return hasTrigger && hasAction && hasObservableCondition;
 }
 
+export function sanitizeUserFacingFeedbackText(text: string): string {
+  const withoutBlocklistedLabels =
+    DEFAULT_FEEDBACK_JUDGE_INTERNAL_LABEL_BLOCKLIST.reduce(
+      (current, label) => current.replaceAll(label, ""),
+      text
+    );
+
+  return withoutBlocklistedLabels
+    .replace(/\b[a-z]+(?:_[a-z0-9]+)+\b/g, "")
+    .replace(/\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, "")
+    .replace(/유지할\s*강점\s*[·ㆍ•-]\s*/g, "")
+    .replace(/\s*[·ㆍ•-]\s*(?=[,.;:!?。！？]|$)/g, "")
+    .replace(/([,.;:!?。！？]){2,}/g, "$1")
+    .replace(/\s+([,.;:!?。！？])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function enforceFeedbackJudgeResultSafety(
   result: FeedbackJudgeResult
 ): FeedbackJudgeResult {

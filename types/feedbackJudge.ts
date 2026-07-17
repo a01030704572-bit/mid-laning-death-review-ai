@@ -57,6 +57,7 @@ export type FeedbackJudgeInput = {
     nextGameGoalRaw: string;
     whyItMattersRaw: string;
     whatToCheckRaw: string;
+    extraUserFacingTexts?: string[];
   };
   matchEvidenceSummary?: string[];
   evidenceConfidence?: "confirmed" | "hypothesis" | "uncertain";

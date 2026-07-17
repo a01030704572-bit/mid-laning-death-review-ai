@@ -152,6 +152,101 @@ test("safeRewrite removes jungle_tracking and objective_setup", () => {
   assert.ok(!result.safeRewrite.summaryKo.includes("objective_setup"));
 });
 
+test("adapter detects jungle_tracking inside improvement candidate text", () => {
+  const result = runLocalFeedbackJudgePrecheckForCoachingFeedback(
+    makeFeedback({
+      improvementCandidates: [
+        {
+          ...makeFeedback().improvementCandidates[0],
+          feedbackKo: "jungle_tracking 기준으로 다시 볼 후보입니다.",
+        },
+      ],
+    })
+  );
+
+  assert.equal(result.verdict, "revise");
+  assert.ok(issueTypes(result).includes("internal_label"));
+});
+
+test("adapter detects objective_setup inside improvement candidate text", () => {
+  const result = runLocalFeedbackJudgePrecheckForCoachingFeedback(
+    makeFeedback({
+      improvementCandidates: [
+        {
+          ...makeFeedback().improvementCandidates[0],
+          feedbackKo: "objective_setup 확인이 필요한 후보입니다.",
+        },
+      ],
+    })
+  );
+
+  assert.equal(result.verdict, "revise");
+  assert.ok(issueTypes(result).includes("internal_label"));
+});
+
+test("adapter detects internal label inside strength text", () => {
+  const result = runLocalFeedbackJudgePrecheckForCoachingFeedback(
+    makeFeedback({
+      strengths: [
+        {
+          ...makeFeedback().strengths[0],
+          feedbackKo: "post_kill_conversion 강점 후보입니다.",
+        },
+      ],
+    })
+  );
+
+  assert.equal(result.verdict, "revise");
+  assert.ok(issueTypes(result).includes("internal_label"));
+});
+
+test("adapter detects internal label inside scene review text", () => {
+  const result = runLocalFeedbackJudgePrecheckForCoachingFeedback(
+    makeFeedback({
+      sceneReviews: [
+        {
+          ...makeFeedback().sceneReviews[0],
+          titleKo: "SOLO_KILL_TRADE 장면",
+          reviewHypothesisKo: "wave_management 확인 후보입니다.",
+        },
+      ],
+    })
+  );
+
+  assert.equal(result.verdict, "revise");
+  assert.ok(issueTypes(result).includes("internal_label"));
+});
+
+test("internal_label only returns revise, not reject, and remains showable", () => {
+  const result = runLocalFeedbackJudgePrecheckForCoachingFeedback(
+    makeFeedback({
+      matchSummary: {
+        ...makeFeedback().matchSummary,
+        summaryKo: "jungle_tracking objective_setup post_kill_conversion",
+      },
+      strengths: [
+        {
+          ...makeFeedback().strengths[0],
+          feedbackKo: "fight_direction recall_timing vision_timing",
+        },
+      ],
+      improvementCandidates: [
+        {
+          ...makeFeedback().improvementCandidates[0],
+          feedbackKo: "wave_management roam_timing death_avoidance",
+        },
+      ],
+    })
+  );
+
+  assert.equal(result.verdict, "revise");
+  assert.equal(result.shouldShowToUser, true);
+  assert.equal(
+    result.issues.filter((issue) => issue.type === "internal_label").length,
+    1
+  );
+});
+
 test("hidden psych phrase forces reject", () => {
   const result = runLocalFeedbackJudgePrecheckForCoachingFeedback(
     makeFeedback({
@@ -180,6 +275,21 @@ test("manipulative phrase forces reject", () => {
   assert.equal(result.verdict, "reject");
   assert.equal(result.shouldShowToUser, false);
   assert.ok(issueTypes(result).includes("manipulative"));
+});
+
+test("shaming phrase forces reject", () => {
+  const result = runLocalFeedbackJudgePrecheckForCoachingFeedback(
+    makeFeedback({
+      matchSummary: {
+        ...makeFeedback().matchSummary,
+        summaryKo: "당신 때문에 게임이 망했습니다.",
+      },
+    })
+  );
+
+  assert.equal(result.verdict, "reject");
+  assert.equal(result.shouldShowToUser, false);
+  assert.ok(issueTypes(result).includes("shaming"));
 });
 
 test("vague nextGameGoal returns not_actionable and not pass", () => {

@@ -47,6 +47,7 @@ const {
   detectManipulativePhrases,
   enforceFeedbackJudgeResultSafety,
   hasActionableNextGameGoal,
+  sanitizeUserFacingFeedbackText,
 } = loadTypeScriptModule("lib/feedbackJudgeGuards.ts");
 
 function makeJudgeResult(overrides = {}) {
@@ -105,6 +106,19 @@ test("concrete trigger-based next-game goal passes actionability", () => {
     "상대 정글 위치가 보이지 않으면 압박 전에 와드를 확인하고, 5초 안에 라인 정리 또는 후퇴를 선택하세요.";
 
   assert.equal(hasActionableNextGameGoal(goal), true);
+});
+
+test("sanitizer removes internal labels and awkward strength prefix", () => {
+  const sanitized = sanitizeUserFacingFeedbackText(
+    "유지할 강점· jungle_tracking objective_setup wave_management SOLO_KILL_TRADE 확인"
+  );
+
+  assert.equal(sanitized.includes("jungle_tracking"), false);
+  assert.equal(sanitized.includes("objective_setup"), false);
+  assert.equal(sanitized.includes("wave_management"), false);
+  assert.equal(sanitized.includes("SOLO_KILL_TRADE"), false);
+  assert.equal(sanitized.includes("유지할 강점·"), false);
+  assert.equal(sanitized, "확인");
 });
 
 test("enforce rejects high hidden psych profile issue", () => {

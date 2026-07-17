@@ -1,5 +1,4 @@
 import {
-  DEFAULT_FEEDBACK_JUDGE_INTERNAL_LABEL_BLOCKLIST,
   DEFAULT_FEEDBACK_JUDGE_MODE_DEFINITIONS,
 } from "@/lib/feedbackJudgePrompt";
 import {
@@ -8,6 +7,7 @@ import {
   detectManipulativePhrases,
   enforceFeedbackJudgeResultSafety,
   hasActionableNextGameGoal,
+  sanitizeUserFacingFeedbackText,
 } from "@/lib/feedbackJudgeGuards";
 import type { CoachingFeedback } from "@/types/coachingFeedback";
 import type {
@@ -68,6 +68,7 @@ export function buildFeedbackJudgeInputFromCoachingFeedback(
         feedback.matchSummary.overallHypothesisKo ||
         feedback.matchSummary.summaryKo,
       whatToCheckRaw: feedback.nextGameGoal.successConditionKo,
+      extraUserFacingTexts: extractUserFacingFeedbackTexts(feedback),
     },
     matchEvidenceSummary: buildMatchEvidenceSummary(feedback),
     evidenceConfidence: options.evidenceConfidence ?? "hypothesis",
@@ -92,6 +93,7 @@ export function runLocalFeedbackJudgePrecheck(
     draft.nextGameGoalRaw,
     draft.whyItMattersRaw,
     draft.whatToCheckRaw,
+    ...(draft.extraUserFacingTexts ?? []),
   ].join("\n");
   const issues = collectLocalIssues({
     checkedText,
@@ -157,8 +159,16 @@ function collectLocalIssues(input: {
 }): FeedbackJudgeIssue[] {
   const issues: FeedbackJudgeIssue[] = [];
 
-  for (const leak of detectInternalLabelLeaks(input.checkedText)) {
-    issues.push(createIssue("internal_label", "medium", "내부 개발 라벨이 사용자 문구에 노출됐습니다.", leak));
+  const internalLabelLeaks = detectInternalLabelLeaks(input.checkedText);
+  if (internalLabelLeaks.length > 0) {
+    issues.push(
+      createIssue(
+        "internal_label",
+        "medium",
+        "내부 개발 라벨이 사용자 문구에 노출됐습니다.",
+        internalLabelLeaks.join(", ")
+      )
+    );
   }
 
   for (const phrase of detectHiddenPsychProfilePhrases(input.checkedText)) {
@@ -269,17 +279,34 @@ function buildMatchEvidenceSummary(feedback: CoachingFeedback) {
   ].filter(Boolean);
 }
 
+function extractUserFacingFeedbackTexts(feedback: CoachingFeedback) {
+  return [
+    feedback.matchSummary.titleKo,
+    feedback.matchSummary.summaryKo,
+    feedback.matchSummary.overallHypothesisKo,
+    feedback.nextGameGoal.goalKo,
+    feedback.nextGameGoal.triggerKo,
+    feedback.nextGameGoal.successConditionKo,
+    ...feedback.strengths.map((strength) => strength.feedbackKo),
+    ...feedback.improvementCandidates.map((candidate) => candidate.feedbackKo),
+    ...feedback.recurringPatterns.map((pattern) => pattern.hypothesisKo),
+    ...feedback.sceneReviews.flatMap((sceneReview) => [
+      sceneReview.titleKo,
+      sceneReview.reviewHypothesisKo,
+      sceneReview.goodDecisionKo,
+      sceneReview.missedConditionKo,
+      sceneReview.correctionKo,
+      sceneReview.nextActionKo,
+      ...sceneReview.evidence.flatMap((evidence) => [
+        evidence.labelKo,
+        evidence.detailKo,
+      ]),
+    ]),
+  ].filter((text): text is string => Boolean(text?.trim()));
+}
+
 function cleanUserFacingText(text: string, fallback: string) {
-  const withoutBlocklistedLabels =
-    DEFAULT_FEEDBACK_JUDGE_INTERNAL_LABEL_BLOCKLIST.reduce(
-      (current, label) => current.replaceAll(label, ""),
-      text
-    );
-  const cleaned = withoutBlocklistedLabels
-    .replace(/\b[a-z]+(?:_[a-z0-9]+)+\b/g, "")
-    .replace(/\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const cleaned = sanitizeUserFacingFeedbackText(text);
 
   return cleaned || fallback;
 }

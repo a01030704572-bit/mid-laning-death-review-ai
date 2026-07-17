@@ -4,6 +4,10 @@ import RankedSceneCard from "@/components/RankedSceneCard";
 import type { AppMode } from "@/lib/appMode";
 import type { CoachingFeedback } from "@/types/coachingFeedback";
 import type {
+  FeedbackJudgeIssue,
+  FeedbackJudgeSafeRewrite,
+} from "@/types/feedbackJudge";
+import type {
   MatchReviewReport,
   RankedReviewScene,
   SceneBundle,
@@ -16,6 +20,14 @@ type MatchAnalysisDashboardProps = {
   appMode?: AppMode;
   coachingFeedbackPreview?: CoachingFeedback | null;
   coachingFeedbackPreviewWarnings?: string[];
+  feedbackJudgePreview?: {
+    verdict: "pass" | "revise" | "reject";
+    qualityScore: number;
+    issues: FeedbackJudgeIssue[];
+    shouldShowToUser: boolean;
+  } | null;
+  feedbackJudgePreviewWarnings?: string[];
+  feedbackJudgeSafeRewrite?: FeedbackJudgeSafeRewrite;
 };
 
 type SceneSectionProps = {
@@ -78,6 +90,9 @@ export default function MatchAnalysisDashboard({
   appMode = "user",
   coachingFeedbackPreview,
   coachingFeedbackPreviewWarnings = [],
+  feedbackJudgePreview,
+  feedbackJudgePreviewWarnings = [],
+  feedbackJudgeSafeRewrite,
 }: MatchAnalysisDashboardProps) {
   if (!report) return null;
 
@@ -119,6 +134,9 @@ export default function MatchAnalysisDashboard({
         <CoachingFeedbackPreviewCard
           feedback={coachingFeedbackPreview}
           warnings={coachingFeedbackPreviewWarnings}
+          feedbackJudgePreview={feedbackJudgePreview}
+          feedbackJudgePreviewWarnings={feedbackJudgePreviewWarnings}
+          feedbackJudgeSafeRewrite={feedbackJudgeSafeRewrite}
           debugMode={isDebugMode}
         />
         <PostGameSummaryCard
