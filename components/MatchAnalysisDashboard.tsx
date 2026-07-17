@@ -1,6 +1,8 @@
+import CoachingFeedbackPreviewCard from "@/components/CoachingFeedbackPreviewCard";
 import PostGameSummaryCard from "@/components/PostGameSummaryCard";
 import RankedSceneCard from "@/components/RankedSceneCard";
 import type { AppMode } from "@/lib/appMode";
+import type { CoachingFeedback } from "@/types/coachingFeedback";
 import type {
   MatchReviewReport,
   RankedReviewScene,
@@ -12,6 +14,8 @@ type MatchAnalysisDashboardProps = {
   selectedScene: RankedReviewScene | null;
   onSelectScene: (scene: RankedReviewScene) => void;
   appMode?: AppMode;
+  coachingFeedbackPreview?: CoachingFeedback | null;
+  coachingFeedbackPreviewWarnings?: string[];
 };
 
 type SceneSectionProps = {
@@ -72,6 +76,8 @@ export default function MatchAnalysisDashboard({
   selectedScene,
   onSelectScene,
   appMode = "user",
+  coachingFeedbackPreview,
+  coachingFeedbackPreviewWarnings = [],
 }: MatchAnalysisDashboardProps) {
   if (!report) return null;
 
@@ -110,6 +116,11 @@ export default function MatchAnalysisDashboard({
       </div>
 
       <div className="mt-4 space-y-3">
+        <CoachingFeedbackPreviewCard
+          feedback={coachingFeedbackPreview}
+          warnings={coachingFeedbackPreviewWarnings}
+          debugMode={isDebugMode}
+        />
         <PostGameSummaryCard
           topScenes={topScenes}
           strengthScenes={strengthScenes}

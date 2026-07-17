@@ -15,6 +15,7 @@ import VideoDraftPanel from "@/components/VideoDraftPanel";
 import { ReviewResult, RiskTag, ScenarioType } from "@/types/review";
 import type { ReviewSceneCompletion } from "@/types/history";
 import type { ReviewEvidenceMetadata } from "@/types/evidence";
+import type { CoachingFeedback } from "@/types/coachingFeedback";
 import type { MatchReviewReport, RankedReviewScene } from "@/types/matchReview";
 import type { RiotTimelineEvidence } from "@/types/riot";
 import type { LockedRiotVideoContext, VideoReviewDraft } from "@/types/videoDraft";
@@ -37,6 +38,17 @@ import { getAppMode, type AppMode } from "@/lib/appMode";
 type ManualReviewFallbackSectionProps = {
   appMode: AppMode;
   children: ReactNode;
+};
+
+type MatchReviewResponse = {
+  report?: MatchReviewReport;
+  coachingFeedbackPreview?: {
+    feedback: CoachingFeedback;
+    warnings: string[];
+    changed: boolean;
+  } | null;
+  coachingFeedbackPreviewWarnings?: string[];
+  error?: string;
 };
 
 function ManualReviewFallbackSection({
@@ -242,6 +254,10 @@ export default function Home() {
     useState<LockedRiotVideoContext | null>(null);
   const [matchReviewReport, setMatchReviewReport] =
     useState<MatchReviewReport | null>(null);
+  const [coachingFeedbackPreview, setCoachingFeedbackPreview] =
+    useState<CoachingFeedback | null>(null);
+  const [coachingFeedbackPreviewWarnings, setCoachingFeedbackPreviewWarnings] =
+    useState<string[]>([]);
   const [selectedScene, setSelectedScene] =
     useState<RankedReviewScene | null>(null);
   const [matchReviewError, setMatchReviewError] = useState<string | null>(null);
@@ -312,6 +328,8 @@ export default function Home() {
     setLockedRiotVideoContext(nextLockedRiotContext);
     if (!nextEvidence) {
       setMatchReviewReport(null);
+      setCoachingFeedbackPreview(null);
+      setCoachingFeedbackPreviewWarnings([]);
       setSelectedScene(null);
       setMatchReviewError(null);
     }
@@ -321,6 +339,8 @@ export default function Home() {
     setIsMatchReviewLoading(true);
     setMatchReviewError(null);
     setMatchReviewReport(null);
+    setCoachingFeedbackPreview(null);
+    setCoachingFeedbackPreviewWarnings([]);
     setSelectedScene(null);
 
     try {
@@ -332,10 +352,7 @@ export default function Home() {
       const response = await fetch(
         `/api/riot/match-review?${params.toString()}`
       );
-      const data = (await response.json()) as {
-        report?: MatchReviewReport;
-        error?: string;
-      };
+      const data = (await response.json()) as MatchReviewResponse;
 
       if (!response.ok || !data.report) {
         throw new Error(
@@ -344,6 +361,13 @@ export default function Home() {
       }
 
       setMatchReviewReport(data.report);
+      setCoachingFeedbackPreview(
+        data.coachingFeedbackPreview?.feedback ?? null
+      );
+      setCoachingFeedbackPreviewWarnings([
+        ...(data.coachingFeedbackPreview?.warnings ?? []),
+        ...(data.coachingFeedbackPreviewWarnings ?? []),
+      ]);
       setSelectedScene(data.report.topScenes[0] ?? null);
     } catch (requestError) {
       setMatchReviewError(
@@ -417,6 +441,8 @@ export default function Home() {
         <MatchAnalysisDashboard
           report={matchReviewReport}
           selectedScene={selectedScene}
+          coachingFeedbackPreview={coachingFeedbackPreview}
+          coachingFeedbackPreviewWarnings={coachingFeedbackPreviewWarnings}
           onSelectScene={setSelectedScene}
           appMode={appMode}
         />
