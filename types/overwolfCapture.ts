@@ -4,6 +4,7 @@ export type OverwolfCaptureEventType =
   | "kill"
   | "assist"
   | "objective"
+  | "game_end"
   | "recall"
   | "unknown";
 

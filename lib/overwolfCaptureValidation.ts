@@ -17,6 +17,7 @@ const EVENT_TYPES = new Set<OverwolfCaptureEventType>([
   "kill",
   "assist",
   "objective",
+  "game_end",
   "recall",
   "unknown",
 ]);

@@ -154,6 +154,7 @@
       "kill",
       "assist",
       "objective",
+      "game_end",
       "recall",
       "unknown",
     ].includes(value)

@@ -35,6 +35,15 @@ After Overwolf developer access is available:
 4. Paste it into the importer.
 5. Expected result: `safe true`, session status `validated`, and no validation issues.
 
+## Local LoL event mapping contract
+
+Level 10-H.2 adds a local mapper contract in `src/lolEventMapper.js`.
+It converts raw event-like objects into safe capture event candidates such as `death`, `kill`, `assist`, `objective`, `game_end`, or `unknown`.
+
+`samples/sample-raw-lol-events.json` is a fake local fixture for mapper tests.
+It is not official Overwolf League of Legends payload documentation.
+Actual LoL GEP feature names and payload fields must be verified after Overwolf developer whitelist access and official League event testing.
+
 ## Safety notes
 
 - Do not provide real-time coaching or live strategic recommendations.

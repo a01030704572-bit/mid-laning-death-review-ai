@@ -5,6 +5,7 @@
     "kill",
     "assist",
     "objective",
+    "game_end",
     "recall",
     "unknown",
   ]);

@@ -38,33 +38,20 @@
 
   function mapGameEventToCaptureEvent(event) {
     const firstEvent = Array.isArray(event?.events) ? event.events[0] : event;
-    const rawName = firstEvent?.name || firstEvent?.event || "unknown";
-    const type = inferCaptureEventType(rawName);
+    const mapper = globalScope.MidLaneReviewLolEventMapper;
+
+    if (mapper && typeof mapper.mapLolRawEventToCaptureEvent === "function") {
+      return mapper.mapLolRawEventToCaptureEvent(firstEvent);
+    }
 
     return {
-      id: `ow-event-${Date.now()}-${String(rawName)}`,
-      type,
+      id: `lol-event-${Date.now()}-unknown`,
+      type: "unknown",
       localTimestampMs: Date.now(),
-      confidence: type === "unknown" ? "low" : "medium",
-      rawEventName: String(rawName),
-      summaryKo: "Overwolf game event 후보입니다. 실제 매핑은 추후 보강이 필요합니다.",
+      confidence: "low",
+      rawEventName: "unknown",
+      summaryKo: "분류되지 않은 게임 이벤트 후보입니다.",
     };
-  }
-
-  function inferCaptureEventType(rawName) {
-    const value = String(rawName).toLowerCase();
-    if (value.includes("death")) return "death";
-    if (value.includes("kill")) return "kill";
-    if (value.includes("assist")) return "assist";
-    if (
-      value.includes("dragon") ||
-      value.includes("baron") ||
-      value.includes("objective")
-    ) {
-      return "objective";
-    }
-    if (value.includes("recall")) return "recall";
-    return "unknown";
   }
 
   function hasGameEventsApi() {

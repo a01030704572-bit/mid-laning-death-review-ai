@@ -1,0 +1,30 @@
+[
+  {
+    "id": "raw-death-001",
+    "name": "player_death",
+    "localTimestampMs": 1721030400000,
+    "estimatedGameTimeSec": 548
+  },
+  {
+    "id": "raw-kill-001",
+    "eventName": "champion_takedown",
+    "localTimestampMs": 1721030600000,
+    "estimatedGameTimeSec": 748
+  },
+  {
+    "id": "raw-objective-001",
+    "type": "dragon_objective",
+    "localTimestampMs": 1721030780000,
+    "estimatedGameTimeSec": 928
+  },
+  {
+    "id": "raw-end-001",
+    "feature": "match_end",
+    "localTimestampMs": 1721031800000
+  },
+  {
+    "id": "raw-unknown-001",
+    "name": "unmapped_local_fixture_event",
+    "localTimestampMs": 1721031900000
+  }
+]
