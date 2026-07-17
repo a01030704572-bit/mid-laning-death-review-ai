@@ -2,6 +2,7 @@ import CoachingFeedbackPreviewCard from "@/components/CoachingFeedbackPreviewCar
 import PostGameSummaryCard from "@/components/PostGameSummaryCard";
 import RankedSceneCard from "@/components/RankedSceneCard";
 import type { AppMode } from "@/lib/appMode";
+import { getPostGameReviewDisplayPolicy } from "@/lib/postGameReviewDisplayPolicy";
 import type { CoachingFeedback } from "@/types/coachingFeedback";
 import type {
   FeedbackJudgeIssue,
@@ -113,6 +114,122 @@ export default function MatchAnalysisDashboard({
       sceneBundle,
     ])
   );
+  const displayPolicy = getPostGameReviewDisplayPolicy({
+    debugMode: isDebugMode,
+    hasMatchReview: Boolean(report),
+    hasCoachingFeedbackPreview: Boolean(coachingFeedbackPreview),
+    topScenes: report.topScenes,
+    strengthScenes: report.strengthScenes,
+    improvementScenes: report.improvementScenes,
+  });
+
+  if (!isDebugMode) {
+    return (
+      <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                분석 완료
+              </span>
+              <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-600">
+                Riot 자동 복기
+              </span>
+            </div>
+            <h2 className="mt-3 text-base font-bold text-zinc-950">
+              이번 판 리뷰
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">
+              먼저 고칠 목표와 바로 확인할 장면만 추려서 보여드립니다.
+            </p>
+          </div>
+          {report.playerChampion && (
+            <span className="w-fit rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-600">
+              {report.playerChampion}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {displayPolicy.showMainCoachingCard && (
+            <CoachingFeedbackPreviewCard
+              feedback={coachingFeedbackPreview}
+              warnings={coachingFeedbackPreviewWarnings}
+              feedbackJudgePreview={feedbackJudgePreview}
+              feedbackJudgePreviewWarnings={feedbackJudgePreviewWarnings}
+              feedbackJudgeSafeRewrite={feedbackJudgeSafeRewrite}
+              debugMode={false}
+            />
+          )}
+
+          {displayPolicy.showCompactSummary && (
+            <PostGameSummaryCard
+              topScenes={displayPolicy.primaryScenes}
+              strengthScenes={displayPolicy.keepScenes}
+              improvementScenes={[]}
+            />
+          )}
+
+          <SceneSection
+            title="먼저 볼 장면"
+            description="이번 경기에서 가장 먼저 복기할 핵심 장면입니다."
+            scenes={displayPolicy.primaryScenes}
+            emptyText="아직 먼저 볼 장면이 없습니다."
+            selectedScene={selectedScene}
+            sceneBundlesByRepresentative={sceneBundlesByRepresentative}
+            appMode={appMode}
+            onSelectScene={onSelectScene}
+          />
+
+          {displayPolicy.keepScenes.length > 0 && (
+            <SceneSection
+              title="유지할 좋은 판단"
+              description="다음 판에도 유지할 만한 좋은 판단 후보입니다."
+              scenes={displayPolicy.keepScenes}
+              emptyText="아직 자동으로 분리된 좋은 판단 후보가 없습니다."
+              selectedScene={selectedScene}
+              sceneBundlesByRepresentative={sceneBundlesByRepresentative}
+              appMode={appMode}
+              onSelectScene={onSelectScene}
+            />
+          )}
+
+          <details className="group rounded-2xl border border-zinc-200 bg-zinc-50">
+            <summary className="cursor-pointer list-none px-4 py-3 marker:hidden">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-950">
+                    추가 후보 보기
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    나머지 대표/개선/강점 후보는 필요할 때 펼쳐서 확인하세요.
+                  </p>
+                </div>
+                <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-500 group-open:hidden">
+                  자세히 보기
+                </span>
+                <span className="hidden rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-500 group-open:inline">
+                  접기
+                </span>
+              </div>
+            </summary>
+            <div className="border-t border-zinc-200 p-3">
+              <SceneSection
+                title="추가로 체크할 후보"
+                description="위험 판단, 놓친 전환, 반복 습관으로 이어질 수 있는 후보입니다."
+                scenes={displayPolicy.additionalScenes}
+                emptyText="추가로 표시할 후보가 없습니다."
+                selectedScene={selectedScene}
+                sceneBundlesByRepresentative={sceneBundlesByRepresentative}
+                appMode={appMode}
+                onSelectScene={onSelectScene}
+              />
+            </div>
+          </details>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">

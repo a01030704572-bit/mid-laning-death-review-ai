@@ -545,7 +545,7 @@ export default function Home() {
   );
   const topSummaryPanel = isUserMode ? (
     <div className="space-y-4">
-      <RecentReviewFlowPreview />
+      {!hasAutomaticMatchReport && <RecentReviewFlowPreview />}
       {matchAnalysisPanel ?? <AutomaticReviewStartCta />}
     </div>
   ) : (
